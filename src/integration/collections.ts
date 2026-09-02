@@ -6,6 +6,12 @@ import { z } from "astro/zod";
 const optionalText = () =>
 	z.preprocess((value) => (value == null ? undefined : value), z.string().optional()).default("");
 
+const optionalTextArray = () =>
+	z.preprocess(
+		(value) => (value == null ? undefined : Array.isArray(value) ? value.filter((item) => item != null && item !== "") : value),
+		z.array(z.string()).optional(),
+	).default([]);
+
 /**
  * Content collection definitions for Shirone, packaged so a user's
  * `src/content.config.ts` stays three lines long:
@@ -53,7 +59,7 @@ export const postSchema = z.object({
 	comment: z.boolean().optional().default(true),
 	description: optionalText(),
 	image: optionalText(),
-	tags: z.array(z.string()).optional().default([]),
+	tags: optionalTextArray(),
 	category: optionalText(),
 	lang: optionalText(),
 
@@ -80,7 +86,7 @@ export const momentSchema = z.object({
 	location: z.string().optional().default(""),
 	/** Mood icon (Iconify name, e.g. `material-symbols:sentiment-excited-outline-rounded`). */
 	mood: z.string().optional().default(""),
-	tags: z.array(z.string()).optional().default([]),
+	tags: optionalTextArray(),
 	images: z
 		.array(
 			z.object({

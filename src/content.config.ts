@@ -7,6 +7,12 @@ import { z } from "astro/zod";
 const optionalText = () =>
 	z.preprocess((value) => (value == null ? undefined : value), z.string().optional()).default("");
 
+const optionalTextArray = () =>
+	z.preprocess(
+		(value) => (value == null ? undefined : Array.isArray(value) ? value.filter((item) => item != null && item !== "") : value),
+		z.array(z.string()).optional(),
+	).default([]);
+
 const postsCollection = defineCollection({
 	loader: glob({ base: "./src/content/posts", pattern: "**/*.{md,mdx}" }),
 	schema: z.object({
@@ -20,7 +26,7 @@ const postsCollection = defineCollection({
 		comment: z.boolean().optional().default(true),
 		description: optionalText(),
 		image: optionalText(),
-		tags: z.array(z.string()).optional().default([]),
+		tags: optionalTextArray(),
 		category: optionalText(),
 		lang: optionalText(),
 
@@ -60,7 +66,7 @@ const momentsCollection = defineCollection({
 		location: z.string().optional().default(""),
 		/** 心情（Iconify 图标名，如 material-symbols:sentiment-excited-outline-rounded） */
 		mood: z.string().optional().default(""),
-		tags: z.array(z.string()).optional().default([]),
+		tags: optionalTextArray(),
 		images: z
 			.array(
 				z.object({
