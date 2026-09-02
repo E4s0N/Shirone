@@ -30,7 +30,7 @@ jobs:
 
       - name: Pull Private Content & Build
         env:
-          CONTENT_REPO_URL: "https://x-access-token:${{ secrets.CONTENT_ACCESS_TOKEN }}@github.com/${{ github.repository_owner }}/my-blog-content.git"
+          CONTENT_REPO_URL: "https://x-access-token:${{ secrets.CONTENT_ACCESS_TOKEN }}@github.com/${{ github.repository_owner }}/Shirone-Content.git"
         run: |
           pnpm content:sync
           pnpm build
