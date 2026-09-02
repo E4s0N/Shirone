@@ -2,6 +2,10 @@ import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
 
+// Keep blank YAML values (parsed as null) compatible with optional text fields.
+const optionalText = () =>
+	z.preprocess((value) => (value == null ? undefined : value), z.string().optional()).default("");
+
 /**
  * Content collection definitions for Shirone, packaged so a user's
  * `src/content.config.ts` stays three lines long:
@@ -47,11 +51,11 @@ export const postSchema = z.object({
 	pinned: z.boolean().optional().default(false),
 	draft: z.boolean().optional().default(false),
 	comment: z.boolean().optional().default(true),
-	description: z.string().optional().default(""),
-	image: z.string().optional().default(""),
+	description: optionalText(),
+	image: optionalText(),
 	tags: z.array(z.string()).optional().default([]),
-	category: z.string().optional().nullable().default(""),
-	lang: z.string().optional().default(""),
+	category: optionalText(),
+	lang: optionalText(),
 
 	/* Post encryption */
 	encrypted: z.boolean().optional().default(false),
@@ -59,7 +63,7 @@ export const postSchema = z.object({
 		.union([z.string(), z.number()])
 		.transform((v) => String(v))
 		.optional(),
-	passwordHint: z.string().optional().default(""),
+	passwordHint: optionalText(),
 	hideHomeContent: z.boolean().optional().default(true),
 
 	/* Populated internally by the theme during collection post-processing */

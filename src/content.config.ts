@@ -2,6 +2,11 @@ import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
 
+// YAML treats a blank value (for example `image:`) as null. Optional text
+// fields should accept that form and expose a stable empty string to callers.
+const optionalText = () =>
+	z.preprocess((value) => (value == null ? undefined : value), z.string().optional()).default("");
+
 const postsCollection = defineCollection({
 	loader: glob({ base: "./src/content/posts", pattern: "**/*.{md,mdx}" }),
 	schema: z.object({
@@ -13,11 +18,11 @@ const postsCollection = defineCollection({
 		pinned: z.boolean().optional().default(false),
 		draft: z.boolean().optional().default(false),
 		comment: z.boolean().optional().default(true),
-		description: z.string().optional().default(""),
-		image: z.string().optional().default(""),
+		description: optionalText(),
+		image: optionalText(),
 		tags: z.array(z.string()).optional().default([]),
-		category: z.string().optional().nullable().default(""),
-		lang: z.string().optional().default(""),
+		category: optionalText(),
+		lang: optionalText(),
 
 		/* Post Encryption */
 		encrypted: z.boolean().optional().default(false),
@@ -25,7 +30,7 @@ const postsCollection = defineCollection({
 			.union([z.string(), z.number()])
 			.transform((v) => String(v))
 			.optional(),
-		passwordHint: z.string().optional().default(""),
+		passwordHint: optionalText(),
 		hideHomeContent: z.boolean().optional().default(true),
 
 		/* Post alias & custom permalink */
