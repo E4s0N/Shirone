@@ -1,0 +1,80 @@
+site: "https://tangkai.me/"
+base: "/"
+title: "Tangkai's Blog"
+subtitle: "A blog about Tangkai"
+
+topAppBar:
+  contentAlign: "center"
+
+displaySettings:
+  colorStyle: true
+  colorSpec: true
+  wallpaperMode: true
+  layoutMode: true
+  reduceMotion: true
+  texture: true
+
+lang: "zh_CN"
+timeZone: "Asia/Shanghai"
+
+themeColor:
+  hue: 160
+  fixed: true
+  style: "tonalSpot"
+  spec: "2025"
+
+wallpaperMode:
+  defaultMode: "none"
+
+texture:
+  enable: true
+  defaultPreset: "starlight"
+  defaultOpacity: 0.12
+  allowMotion: true
+
+banner:
+  src:
+    desktop:
+      - "assets/images/banner/desktop/1.webp"
+    mobile:
+      - "assets/images/banner/mobile/1.webp"
+  position: "center"
+  dim:
+    enable: true
+    opacity: 0.24
+  homeText:
+    enable: false
+    title: "Tangkai's Blog"
+    subtitle:
+      - "特別なことはないけど、君がいると十分です"
+      - "今でもあなたは私の光"
+      - "君ってさ、知らないうちに私の毎日になってたよ"
+      - "君と話すと、なんか毎日がちょっと楽しくなるんだ"
+      - "今日はなんでもない日。でも、ちょっとだけいい日"
+    typewriter:
+      enable: true
+      speed: 100
+      deleteSpeed: 50
+      pauseTime: 2000
+      loop: true
+  carousel:
+    enable: true
+    interval: 6000
+    fadeDuration: 1200
+    animation: "ken-burns"
+  waves:
+    enable: true
+
+imageOptimization:
+  noReferrerDomains:
+    - "*.hdslb.com"
+
+toc:
+  enable: true
+  depth: 2
+
+progressIndicator:
+  style: "dual"
+
+favicon:
+  - src: "/logo/icon.webp"
