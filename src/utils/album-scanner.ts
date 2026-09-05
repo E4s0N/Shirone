@@ -21,6 +21,12 @@ const IMAGE_EXTENSIONS = new Set([
 	".tif",
 ]);
 
+/** Live Photo 配对视频的 sidecar 扩展名 */
+export const VIDEO_EXTENSIONS = new Set([".mov", ".mp4", ".webm", ".m4v"]);
+
+/** 展示缩略图目录：`<相册目录>/thumb/<照片名去扩展名>.webp`（dev/CI 自动生成） */
+export const THUMBNAIL_DIRECTORY = "thumb";
+
 const DEFAULT_DATE = new Intl.DateTimeFormat("en-CA").format(new Date());
 
 type RawPhoto = Record<string, unknown>;
@@ -63,10 +69,11 @@ function toPublicPath(relativePath: string): string {
 	return `/images/albums/${relativePath.replaceAll(path.sep, "/")}`;
 }
 
-function parseFileName(fileName: string): { title: string; tags: string[] } {
+/** 文件名首个 `_` 之后的段解析为照片标签（如 `sunset_beach.webp` → ["beach"]） */
+function parseFileNameTags(fileName: string): string[] {
 	const baseName = path.basename(fileName, path.extname(fileName));
-	const [title, ...tags] = baseName.split("_");
-	return { title: title || baseName, tags: tags.filter(Boolean) };
+	const [, ...tags] = baseName.split("_");
+	return tags.filter(Boolean);
 }
 
 function readJson(filePath: string): RawAlbum | null {
@@ -75,10 +82,35 @@ function readJson(filePath: string): RawAlbum | null {
 		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
 			? (parsed as RawAlbum)
 			: null;
-	} catch (error) {
-		console.warn(`[albums] Failed to read ${filePath}`, error);
+	} catch {
 		return null;
 	}
+}
+
+/**
+ * 无 info.json 的目录相册：直接读取目录内图片，零配置即可展示。
+ * 标题用目录名，封面回退第一张照片，日期取最新一张照片的文件日期。
+ */
+function directoryAlbum(id: string, albumDir: string): AlbumGroup | null {
+	const photos = localPhotos(id, albumDir);
+	if (!photos.length) return null;
+	const date = photos.reduce(
+		(latest, photo) => (photo.date && photo.date > latest ? photo.date : latest),
+		DEFAULT_DATE,
+	);
+	return {
+		id,
+		title: id,
+		description: "",
+		cover: photos[0]?.src ?? "",
+		date,
+		location: "",
+		tags: [],
+		layout: "masonry",
+		columns: 3,
+		hidden: false,
+		photos,
+	};
 }
 
 function fileDate(filePath: string): string {
@@ -89,8 +121,8 @@ function fileDate(filePath: string): string {
 	}
 }
 
-function resolveLocalPhotoFiles(albumDir: string): string[] {
-	const files = fs
+/** 列出相册目录内的照片文件（应用 cover/缩略图/Live Photo 过滤与数字感知排序） */
+export function resolveLocalPhotoFiles(albumDir: string): string[] {	const files = fs
 		.readdirSync(albumDir, { withFileTypes: true })
 		.filter(
 			(entry) =>
@@ -98,6 +130,8 @@ function resolveLocalPhotoFiles(albumDir: string): string[] {
 				IMAGE_EXTENSIONS.has(path.extname(entry.name).toLowerCase()),
 		)
 		.map((entry) => entry.name)
+		// .thumb.webp 是展示用缩略图 sidecar，不作为照片本身
+		.filter((name) => !/\.thumb\.webp$/i.test(name))
 		.filter((name) => !/^cover\.(?:webp|jpg)$/i.test(name));
 	const names = new Set(files);
 	return files
@@ -112,17 +146,68 @@ function resolveLocalPhotoFiles(albumDir: string): string[] {
 
 function localPhotos(albumId: string, albumDir: string): AlbumPhoto[] {
 	return resolveLocalPhotoFiles(albumDir).map((fileName, index) => {
-		const parsed = parseFileName(fileName);
 		const relative = `${albumId}/${fileName}`;
+		// 展示缩略图：优先 thumb/<名>.webp（自动生成），回退 <名>.thumb.webp（手工 sidecar）
+		const baseName = path.basename(fileName, path.extname(fileName));
+		const folderThumb = path.join(albumDir, THUMBNAIL_DIRECTORY, `${baseName}.webp`);
+		const sidecarThumb = path.join(albumDir, `${baseName}.thumb.webp`);
 		return {
 			id: `${albumId}-photo-${index + 1}`,
 			src: toPublicPath(relative),
-			alt: parsed.title,
-			title: parsed.title,
-			tags: parsed.tags,
+			// 悬浮浮层与查看器信息栏展示完整文件名，不按下划线截断成标题
+			alt: fileName,
+			thumbnail: fs.existsSync(folderThumb)
+				? toPublicPath(`${albumId}/${THUMBNAIL_DIRECTORY}/${baseName}.webp`)
+				: fs.existsSync(sidecarThumb)
+					? toPublicPath(`${albumId}/${baseName}.thumb.webp`)
+					: undefined,
+			tags: parseFileNameTags(fileName),
 			date: fileDate(path.join(albumDir, fileName)),
+			liveVideo: findLivePhotoSidecar(albumId, albumDir, fileName),
 		};
 	});
+}
+
+/**
+ * Live Photo 配对视频：thumb/<照片名>.<ext>（提取/提交的标准位置）优先，
+ * 兼容相册根目录的同名视频；扩展名 .mov/.mp4/.webm/.m4v，忽略大小写。
+ */
+function findLivePhotoSidecar(
+	albumId: string,
+	albumDir: string,
+	fileName: string,
+): string | undefined {
+	const base = path
+		.basename(fileName, path.extname(fileName))
+		.toLowerCase();
+	const searchDirs = [
+		path.join(albumDir, THUMBNAIL_DIRECTORY),
+		albumDir,
+	];
+	let sidecar: string | undefined;
+	for (const searchDir of searchDirs) {
+		let entries: fs.Dirent[];
+		try {
+			entries = fs.readdirSync(searchDir, { withFileTypes: true });
+		} catch {
+			continue;
+		}
+		for (const entry of entries) {
+			if (!entry.isFile()) continue;
+			const ext = path.extname(entry.name).toLowerCase();
+			if (!VIDEO_EXTENSIONS.has(ext)) continue;
+			if (path.basename(entry.name, ext).toLowerCase() === base) {
+				// 多个扩展名并存时按文件名序取第一个，保证确定性
+				if (!sidecar || entry.name < sidecar) sidecar = entry.name;
+			}
+		}
+		if (sidecar) {
+			return toPublicPath(
+				`${albumId}/${path.relative(albumDir, path.join(searchDir, sidecar)).replaceAll(path.sep, "/")}`,
+			);
+		}
+	}
+	return undefined;
 }
 
 function externalPhotos(albumId: string, rawPhotos: unknown): AlbumPhoto[] {
@@ -163,10 +248,17 @@ function scanAlbumDirectory(entry: fs.Dirent): AlbumGroup | null {
 	if (!entry.isDirectory()) return null;
 	const id = entry.name;
 	const albumDir = path.join(ALBUM_ROOT, id);
-	const raw = readJson(path.join(albumDir, "info.json"));
+	const infoPath = path.join(albumDir, "info.json");
+
+	const raw = readJson(infoPath);
 	if (!raw) {
-		console.warn(`[albums] Skipping ${id}: info.json is missing or invalid`);
-		return null;
+		// info.json 是可选项：缺失时静默按目录相册读取；损坏时告警（内容错误需要暴露）但同样回退
+		if (fs.existsSync(infoPath)) {
+			console.warn(
+				`[albums] ${id}: info.json is invalid, falling back to directory defaults`,
+			);
+		}
+		return directoryAlbum(id, albumDir);
 	}
 	const external = raw.mode === "external";
 	const cover = external

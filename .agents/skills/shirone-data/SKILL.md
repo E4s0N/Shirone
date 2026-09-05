@@ -22,7 +22,9 @@ description: Managing Shirone data-backed pages and albums - adding or editing a
 
 每个相册是 `public/images/albums/<id>/` 目录：
 
-- 本地照片模式需要 `info.json`、`cover.webp` 或 `cover.jpg`，其余图片直接放在同目录；文件名可用 `标题_标签1_标签2.ext`。
+- `info.json` 是可选项。不写时按目录相册零配置展示：标题用目录名，封面回退第一张照片，日期取最新照片的文件日期，`masonry` 布局；本地照片模式配置了 `info.json` 时需要 `cover.webp` 或 `cover.jpg`，其余图片直接放在同目录；悬浮浮层与查看器信息栏显示完整文件名，文件名中首个 `_` 之后的段解析为照片标签（如 `beach_海边.webp` → 标签 `海边`）。
+- Live Photo：配对视频放在相册 `thumb/` 目录下与照片同名（忽略大小写，如 `thumb/IMG_0001.mov`，支持 `.mp4/.webm/.m4v`；兼容相册根目录的同名视频），画廊与查看器显示 Live 徽章并支持悬浮/点击播放；external 模式在照片条目上提供 `liveVideo` 字段，效果相同。没有匹配图片的孤立视频文件会被忽略。Android Motion Photo（`MVIMG_*.jpg` 等带 `GCamera:MotionPhoto`/`MicroVideo` XMP 标记的文件）无需手工 sidecar：dev 启动与内容仓 CI 会自动把内嵌视频提取到 `thumb/<照片名>.mp4` 并配对；内嵌视频多为 HEVC，需 ffmpeg 转码为 H.264（CI 自带，本地未装 ffmpeg 时跳过并告警）；iPhone Live Photo 的 `.mov` 仍需从原设备导出提交。
+- 大图占位：`thumb/<照片名>.webp`（dev 启动与内容仓 CI 自动生成，幂等）或手工 sidecar `照片名.thumb.webp` 作为该照片的展示缩略图，瀑布流与查看器在原图加载期间先显示它；两者都不会被视为一张独立照片。
 - 外部照片模式在 `info.json` 设置 `"mode": "external"`、`cover` 和 `photos` 数组；每个照片至少提供 `src`，可选 `thumbnail`、`alt`、`title`、`tags`、日期和相机信息。
 - `title`、`description`、`date`(YYYY-MM-DD)、`location`、`tags`、`layout`(`masonry`/`grid`)、`columns`(2/3/4)、`hidden`、`password` 和 `passwordHint` 按 `src/types/album.ts` 与 `src/utils/album-scanner.ts` 处理。
 - 设有 `password` 的相册必须同时验证详情页和受保护照片，不能把密码或明文受保护清单写入公开文章或日志。

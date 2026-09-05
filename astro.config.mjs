@@ -11,6 +11,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, fontProviders } from "astro/config";
 import expressiveCode from "astro-expressive-code";
 import icon from "astro-icon";
+import sharp from "sharp";
 import { expressiveCodeConfig } from "./src/config/expressiveCodeConfig.ts";
 import { resolvedFontOptions } from "./src/config/fontConfig.ts";
 import { musicConfig, resolveMusicOptions } from "./src/config/musicConfig.ts";
@@ -19,7 +20,9 @@ import { siteConfig } from "./src/config/siteConfig.ts";
 import { resolveUmamiOptions, umamiConfig } from "./src/config/umamiConfig.ts";
 import { pluginCustomCopyButton } from "./src/plugins/expressive-code/custom-copy-button.js";
 import { pluginLanguageBadge } from "./src/plugins/expressive-code/language-badge.ts";
+import { generateMissingAlbumMedia } from "./src/utils/album-thumbnails.ts";
 import { getLocalFontVariants } from "./src/utils/font-options.ts";
+import { loadFontsourceFaces } from "./src/utils/fontsource-local.ts";
 import { siteMarkdownProcessor } from "./src/utils/markdown-processor.mjs";
 
 const musicWidgetEnabled =
@@ -72,6 +75,7 @@ const optionalMusicSidebarPlugin = {
 
 const isBuildCommand = process.argv.includes("build");
 const isDevCommand = process.argv.includes("dev");
+const projectRoot = fileURLToPath(new URL("./", import.meta.url));
 const iconifyOfflineIconPath = fileURLToPath(
 	new URL("./node_modules/@iconify/svelte/dist/OfflineIcon.svelte", import.meta.url),
 );
@@ -137,9 +141,27 @@ const configuredFonts =
 				if (fontsourceVariants.length > 0) {
 					return [
 						{
-							provider: fontProviders.fontsource(),
+							// Resolve Fontsource fonts from the installed npm packages
+							// instead of the remote fontsource provider, whose
+							// initialization requires reaching api.fontsource.org.
+							provider: fontProviders.local(),
 							name: resolvedRole.family,
 							cssVariable: resolvedRole.cssVariable,
+							options: {
+								variants: fontsourceVariants.flatMap((variant) =>
+									loadFontsourceFaces(variant.file, [projectRoot]).map(
+										(face) => ({
+											src: [face.src],
+											weight: variant.weight,
+											style: variant.style,
+											display: resolvedRole.display,
+											...(face.unicodeRange
+												? { unicodeRange: face.unicodeRange }
+												: {}),
+										}),
+									),
+								),
+							},
 							...fallbackOpts,
 						},
 					];
@@ -235,8 +257,12 @@ export default defineConfig({
 		}),
 		svelte({
 			compilerOptions: {
-				// CSS-source hashing keeps SSR and client scope hashes stable after moves.
-				cssHash: ({ css, hash }) => `svelte-${hash(css)}`,
+				// CSS-source hashing keeps SSR and client scope hashes stable after
+				// moves. Build-only: in dev the custom hash only degrades DX and
+				// makes vite-plugin-svelte warn on every start.
+				...(isBuildCommand
+					? { cssHash: ({ css, hash }) => `svelte-${hash(css)}` }
+					: {}),
 				// Keep repeated Svelte compiler diagnostics out of the dev terminal;
 				// check/build still surface the full warning set in CI.
 				warningFilter: () => !isDevCommand,
@@ -247,6 +273,36 @@ export default defineConfig({
 			syntaxHighlight: false,
 			optimize: true,
 		}),
+		{
+			// dev 启动时为本地相册补齐缺失的展示缩略图（thumb/<名>.webp，幂等）。
+			// 构建期不生成：双仓模式下由内容仓 CI 生成并提交，随 content:sync 物化。
+			name: "shirone:album-thumbnails",
+			hooks: {
+				"astro:server:setup": async ({ logger }) => {
+					try {
+						const media = await generateMissingAlbumMedia({
+							albumRoot: fileURLToPath(
+								new URL("./public/images/albums/", import.meta.url),
+							),
+							sharp,
+							log: {
+								info: (m) => logger.info(m),
+								warn: (m) => logger.warn(m),
+							},
+						});
+						if (media.thumbnails > 0 || media.videos > 0) {
+							logger.info(
+								`[albums] generated ${media.thumbnails} thumbnails, ${media.videos} motion videos`,
+							);
+						}
+					} catch (error) {
+						logger.warn(
+							`[albums] album media generation skipped: ${error.message}`,
+						);
+					}
+				},
+			},
+		},
 	],
 	markdown: {
 		processor: siteMarkdownProcessor,

@@ -332,7 +332,7 @@ export function shirones(options: ShironesOptions = {}): AstroIntegration {
 				}
 			},
 
-			"astro:server:setup": ({ server }) => {
+			"astro:server:setup": async ({ server, logger }) => {
 				// Rebuild the override registry when an override file changes so
 				// dev picks new/moved/removed overrides up immediately.
 				const overrideDirs = createOverlayTargets(paths).map((t) =>
@@ -348,6 +348,40 @@ export function shirones(options: ShironesOptions = {}): AstroIntegration {
 						registryRef.overrides = buildOverrideRegistry(paths).overrides;
 					}
 				});
+
+				// 开发启动时为本地相册补齐缺失的展示缩略图与 Motion Photo 视频。
+				// 幂等：已生成的跳过；构建期不运行——双仓模式下由内容仓 CI
+				// 生成并提交，随 content:sync 物化进项目。
+				try {
+					const mediaModule = await loadPackageModule(
+						paths,
+						"utils/album-thumbnails.ts",
+					);
+					const generateMissingAlbumMedia = mediaModule
+						.generateMissingAlbumMedia as (options: {
+						albumRoot: string;
+						sharp: unknown;
+						log?: { info?: (m: string) => void; warn?: (m: string) => void };
+					}) => Promise<{ thumbnails: number; videos: number }>;
+					const sharpModule = await import("sharp");
+					const media = await generateMissingAlbumMedia({
+						albumRoot: join(paths.projectRoot, "public", "images", "albums"),
+						sharp: sharpModule.default ?? sharpModule,
+						log: {
+							info: (m) => logger.info(m),
+							warn: (m) => logger.warn(m),
+						},
+					});
+					if (media.thumbnails > 0 || media.videos > 0) {
+						logger.info(
+							`[albums] generated ${media.thumbnails} thumbnails, ${media.videos} motion videos`,
+						);
+					}
+				} catch (error) {
+					logger.warn(
+						`[albums] album media generation skipped: ${(error as Error).message}`,
+					);
+				}
 			},
 
 			"astro:build:done": async ({ dir, logger }) => {
@@ -537,13 +571,19 @@ async function createBundledIntegrations(
 			preprocess: [vitePreprocess({ script: true })],
 			compilerOptions: {
 				// CSS-source hashing keeps SSR and client scope hashes stable.
-				cssHash: ({
-					css,
-					hash,
-				}: {
-					css: string;
-					hash: (s: string) => string;
-				}) => `svelte-${hash(css)}`,
+				// Build-only: in dev the custom hash only degrades DX and makes
+				// vite-plugin-svelte warn on every start.
+				...(command === "build"
+					? {
+							cssHash: ({
+								css,
+								hash,
+							}: {
+								css: string;
+								hash: (s: string) => string;
+							}) => `svelte-${hash(css)}`,
+						}
+					: {}),
 				// Keep repeated Svelte compiler diagnostics out of the dev
 				// terminal; check/build still surface the full warning set.
 				warningFilter: () => command !== "dev",

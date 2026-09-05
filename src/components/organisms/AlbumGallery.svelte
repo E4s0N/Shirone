@@ -2,20 +2,37 @@
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import Icon from "@iconify/svelte";
-import { openFancyboxGallery } from "@utils/fancybox-handler";
+import LivePhotoOverlay from "@components/molecules/LivePhotoOverlay.svelte";
 import type { AlbumLayout, AlbumPhoto } from "@/types/album";
 
 let {
 	photos = [] as AlbumPhoto[],
 	layout = "masonry" as AlbumLayout,
 	columns = 3,
+	albumTitle = "",
 }: {
 	photos?: AlbumPhoto[];
 	layout?: AlbumLayout;
 	columns?: 2 | 3 | 4;
+	/** 所属相册标题，透传给查看器信息栏 */
+	albumTitle?: string;
 } = $props();
 
 let measuredRatios = $state<Record<string, number>>({});
+
+// Live Photo 悬浮播放：进入即播，离开延迟 150ms 回退（快速扫过不闪烁）
+let liveHoverIndex = $state<number | null>(null);
+let liveLeaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+function hoverLivePhoto(index: number) {
+	clearTimeout(liveLeaveTimer);
+	liveHoverIndex = index;
+}
+
+function unhoverLivePhoto() {
+	clearTimeout(liveLeaveTimer);
+	liveLeaveTimer = setTimeout(() => (liveHoverIndex = null), 150);
+}
 
 function photoRatio(photo: AlbumPhoto): number | undefined {
 	if (photo.width && photo.height) return photo.width / photo.height;
@@ -53,7 +70,19 @@ function rememberNaturalRatio(photo: AlbumPhoto, event: Event) {
 function openPhoto(event: MouseEvent, photo: AlbumPhoto) {
 	event.preventDefault();
 	event.stopPropagation();
-	void openFancyboxGallery([{ src: photo.src }]);
+	// 整册照片传入查看器：底部缩略图切换 + 右侧信息栏；
+	// WebGL 查看器按需动态加载（组件+引擎 chunk 仅在首次点击时拉取），
+	// WebGL 不可用时由 opener 回退 Fancybox。
+	const startIndex = visiblePhotos.indexOf(photo);
+	void import("@utils/webgl-viewer/opener").then(({ openWebGLViewer }) =>
+		openWebGLViewer({
+			photos: photos.map((item) => ({
+				...item,
+				album: albumTitle || undefined,
+			})),
+			startIndex: startIndex >= 0 ? startIndex : 0,
+		}),
+	);
 }
 
 function ratio(photo: AlbumPhoto): string {
@@ -76,6 +105,8 @@ function ratio(photo: AlbumPhoto): string {
 					style={`--album-photo-ratio: ${ratio(photo)}`}
 					aria-label={`${i18n(I18nKey.openImage)} ${index + 1}: ${photo.alt}`}
 						onclick={(event) => openPhoto(event, photo)}
+					onmouseenter={photo.liveVideo ? () => hoverLivePhoto(index) : undefined}
+					onmouseleave={photo.liveVideo ? unhoverLivePhoto : undefined}
 				>
 					<img
 					src={photo.thumbnail || photo.src}
@@ -87,6 +118,19 @@ function ratio(photo: AlbumPhoto): string {
 					referrerpolicy="no-referrer"
 					onload={(event) => rememberNaturalRatio(photo, event)}
 					/>
+					{#if photo.liveVideo}
+						<LivePhotoOverlay
+							src={photo.liveVideo}
+							active={liveHoverIndex === index}
+						/>
+						<!-- Live Photo 标识 -->
+						<span
+							class="absolute top-2 right-2 grid h-6 w-6 place-items-center rounded-[var(--shape-corner-full)] bg-black/45 text-white backdrop-blur-sm"
+							aria-label={i18n(I18nKey.livePhoto)}
+						>
+							<Icon icon="material-symbols:motion-photos-on-rounded" aria-hidden="true" class="h-3.5 w-3.5" />
+						</span>
+					{/if}
 				</button>
 		{/each}
 	</div>

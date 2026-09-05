@@ -125,6 +125,8 @@ export const fontConfig: FontConfig = {
 
 Fontsource 提供了大量开源西文字体，无需手动下载 `.woff2` 文件。
 
+字体在构建时直接从**本地安装的 npm 包**中解析（Astro 本地字体 provider），不访问 `api.fontsource.org` 或任何 CDN，离线环境与 CI 均可正常构建——因此使用前必须先安装对应的字体包。
+
 1. 在终端安装字体包，例如安装 Lato：
    ```powershell
    pnpm.cmd add @fontsource/lato

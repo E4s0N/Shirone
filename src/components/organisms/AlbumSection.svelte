@@ -5,14 +5,26 @@ import LoadingIndicator from "@components/atoms/feedback/LoadingIndicator.svelte
 import TextField from "@components/atoms/input/TextField.svelte";
 import AlbumCard from "@components/molecules/AlbumCard.svelte";
 import PageHeader from "@components/molecules/PageHeader.svelte";
+import PhotoMasonry from "@components/molecules/PhotoMasonry.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import Icon from "@iconify/svelte";
+import { openWebGLViewer } from "@utils/webgl-viewer/opener";
 import { onMount } from "svelte";
-import type { AlbumIndexItem } from "@/types/album";
+import type { AlbumIndexItem, WallPhoto } from "@/types/album";
 
-let { albums = [] as AlbumIndexItem[] }: { albums?: AlbumIndexItem[] } =
-	$props();
+let {
+	albums = [] as AlbumIndexItem[],
+	photos = [] as WallPhoto[],
+}: {
+	albums?: AlbumIndexItem[];
+	photos?: WallPhoto[];
+} = $props();
+
+/** 视图模式：「所有图片」瀑布流 /「相册」卡片列表；
+ * 初始值与切换均与 category-bar 的模式切换同步（albums:mode 事件 + ?mode= 参数） */
+let mode = $state<"photos" | "albums">("photos");
+
 let query = $state("");
 let selectedTag = $state("");
 let initialized = false;
@@ -47,9 +59,16 @@ function onTagChange() {
 	];
 }
 
-$effect(() => {
-	if (!initialized) return;
+function openPhoto(index: number) {
+	// WebGL 查看器按需动态加载（组件+引擎 chunk 仅在首次点击时拉取）；
+	// WebGL 不可用时由 opener 回退 Fancybox。
+	void openWebGLViewer({ photos, startIndex: index });
+}
+
+function syncUrl() {
 	const params = new URLSearchParams(window.location.search);
+	if (mode === "photos") params.delete("mode");
+	else params.set("mode", "albums");
 	params.delete("q");
 	params.delete("albumTag");
 	if (query.trim()) params.set("q", query.trim());
@@ -60,14 +79,30 @@ $effect(() => {
 		"",
 		search ? `?${search}` : window.location.pathname,
 	);
+}
+
+$effect(() => {
+	if (!initialized) return;
+	syncUrl();
 });
 
 onMount(() => {
 	const params = new URLSearchParams(window.location.search);
+	mode = params.get("mode") === "albums" ? "albums" : "photos";
 	query = params.get("q") || "";
 	selectedTag = params.get("albumTag") || "";
 	initialized = true;
-	return () => phaseTimers.forEach(clearTimeout);
+
+	// category-bar（持久外壳）模式切换按钮 → 本组件
+	const onModeChange = (event: Event) => {
+		const detail = (event as CustomEvent<{ mode: "photos" | "albums" }>).detail;
+		if (detail?.mode && detail.mode !== mode) mode = detail.mode;
+	};
+	document.addEventListener("albums:mode", onModeChange);
+	return () => {
+		document.removeEventListener("albums:mode", onModeChange);
+		phaseTimers.forEach(clearTimeout);
+	};
 });
 </script>
 
@@ -78,57 +113,71 @@ onMount(() => {
 		subtitle={i18n(I18nKey.albumsBanner)}
 	/>
 
-	{#if albums.length > 0}
-		<div class="album-section__tools">
-			<div class="album-section__search">
-				<TextField
-					type="search"
-					bind:value={query}
-					placeholder={i18n(I18nKey.search)}
-					label={i18n(I18nKey.search)}
-					hideLabel
-					variant="outlined"
-					class="!rounded-(--shape-corner-l)"
-				>
-					<Icon slot="leading" icon="material-symbols:search-rounded" aria-hidden="true" />
-				</TextField>
-				{#if query}
-					<button
-						type="button"
-						class="album-section__clear"
-						aria-label={i18n(I18nKey.clear)}
-						onclick={() => (query = "")}
-					>
-						<Icon icon="material-symbols:close-rounded" aria-hidden="true" />
-					</button>
-				{/if}
-			</div>
-			{#if tagItems.length > 0}
-				<Chips items={tagItems} variant="filter" bind:value={selectedTag} onchange={onTagChange} />
-			{/if}
-			<p class="album-section__count" aria-live="polite">
-				{filtered.length} {i18n(I18nKey.albumsCounts)}
+	{#if mode === "photos"}
+		{#if photos.length > 0}
+			<p class="album-section__count album-section__count--wall" aria-live="polite">
+				{photos.length} {i18n(I18nKey.albumsPhotos)}
 			</p>
-		</div>
-	{/if}
-
-	{#if phase !== "idle"}
-		<div class="album-section__loading" class:album-section__loading--out={phase === "out"}>
-			<LoadingIndicator contained size={64} />
-		</div>
-	{:else if filtered.length > 0}
-		<div class="album-section__grid">
-			{#each filtered as album, index (album.id)}
-				<div class="album-section__item" style={`--album-delay: ${Math.min(index, 7) * 45}ms`}>
-					<AlbumCard {album} />
-				</div>
-			{/each}
-		</div>
+			<PhotoMasonry {photos} onOpen={openPhoto} />
+		{:else}
+			<div class="album-section__empty">
+				<Icon icon="material-symbols:photo-library-outline-rounded" aria-hidden="true" />
+				<span>{i18n(I18nKey.noData)}</span>
+			</div>
+		{/if}
 	{:else}
-		<div class="album-section__empty">
-			<Icon icon="material-symbols:search-off-rounded" aria-hidden="true" />
-			<span>{i18n(I18nKey.albumsNoResults)}</span>
-		</div>
+		{#if albums.length > 0}
+			<div class="album-section__tools">
+				<div class="album-section__search">
+					<TextField
+						type="search"
+						bind:value={query}
+						placeholder={i18n(I18nKey.search)}
+						label={i18n(I18nKey.search)}
+						hideLabel
+						variant="outlined"
+						class="!rounded-(--shape-corner-l)"
+					>
+						<Icon slot="leading" icon="material-symbols:search-rounded" aria-hidden="true" />
+					</TextField>
+					{#if query}
+						<button
+							type="button"
+							class="album-section__clear"
+							aria-label={i18n(I18nKey.clear)}
+							onclick={() => (query = "")}
+						>
+							<Icon icon="material-symbols:close-rounded" aria-hidden="true" />
+						</button>
+					{/if}
+				</div>
+				{#if tagItems.length > 0}
+					<Chips items={tagItems} variant="filter" bind:value={selectedTag} onchange={onTagChange} />
+				{/if}
+				<p class="album-section__count" aria-live="polite">
+					{filtered.length} {i18n(I18nKey.albumsCounts)}
+				</p>
+			</div>
+		{/if}
+
+		{#if phase !== "idle"}
+			<div class="album-section__loading" class:album-section__loading--out={phase === "out"}>
+				<LoadingIndicator contained size={64} />
+			</div>
+		{:else if filtered.length > 0}
+			<div class="album-section__grid">
+				{#each filtered as album, index (album.id)}
+					<div class="album-section__item" style={`--album-delay: ${Math.min(index, 7) * 45}ms`}>
+						<AlbumCard {album} />
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<div class="album-section__empty">
+				<Icon icon="material-symbols:search-off-rounded" aria-hidden="true" />
+				<span>{i18n(I18nKey.albumsNoResults)}</span>
+			</div>
+		{/if}
 	{/if}
 </Card>
 
@@ -168,6 +217,8 @@ onMount(() => {
 		margin: 0
 		color: var(--on-surface-variant)
 		font: var(--m3e-type-body-small)
+		&--wall
+			padding: 1rem 0 0.75rem
 	&__grid
 		display: grid
 		grid-template-columns: repeat(1, minmax(0, 1fr))

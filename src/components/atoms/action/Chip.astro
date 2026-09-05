@@ -32,7 +32,8 @@ const {
 	target,
 	label,
 	class: className,
-} = Astro.props;
+	...rest
+} = Astro.props as Props & Record<string, unknown>;
 ---
 
 {
@@ -41,6 +42,7 @@ const {
 			href={href}
 			target={target}
 			aria-label={label}
+			{...rest}
 			class:list={[
 				"m3-chip",
 				"m3-state-layer",
@@ -58,6 +60,7 @@ const {
 			disabled={disabled}
 			aria-label={label}
 			aria-pressed={variant === "filter" ? selected : undefined}
+			{...rest}
 			class:list={[
 				"m3-chip",
 				"m3-state-layer",

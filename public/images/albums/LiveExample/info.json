@@ -1,0 +1,9 @@
+{
+  "title": "Live Photo Example",
+  "description": "Demonstrates the Live Photo sidecar convention (01.webp + 01.mov).",
+  "date": "2025-09-01",
+  "tags": ["live", "example"],
+  "layout": "masonry",
+  "columns": 3,
+  "hidden": false
+}

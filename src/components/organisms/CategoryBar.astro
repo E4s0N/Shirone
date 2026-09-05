@@ -4,6 +4,10 @@
  * 外层 Card 原子容器 + 内层 flex：Home / Archive / 各分类 pill，
  * 分类区横向滚动。当前页 primary 实底强高亮；文章页所属分类 primary-container
  * 弱高亮（M3 次级语义）。query 分类筛选由客户端 JS 在加载 + swup 导航时更新。
+ *
+ * 相册索引页（/albums/）变体：分类区替换为「所有图片 / 相册」视图模式切换，
+ * 点击通过 albums:mode 自定义事件通知 swup 容器内的 AlbumSection（持久外壳
+ * 与内容区解耦，同 site-drawer:toggle 契约），URL 以 ?mode= 记忆当前模式。
  */
 import Chip from "@components/atoms/action/Chip.astro";
 import Card from "@components/atoms/display/Card.svelte";
@@ -23,17 +27,19 @@ const { currentPostCategory } = Astro.props;
 const categories = await getCategoryList();
 const homeUrl = url("/");
 const archiveUrl = url("/archive/");
+const albumsUrl = url("/albums/");
 
 const pathname = Astro.url.pathname;
 const isHome = pathsEqual(pathname, homeUrl);
 const isArchive = pathsEqual(pathname, archiveUrl);
+const isAlbumsIndex = pathsEqual(pathname, albumsUrl);
 const postCategory = (currentPostCategory || "").trim();
 
 // SSR 初始高亮：
 // - 首页 → home 强高亮；归档 → archive 强高亮；
 // - 文章页 → 所属分类弱高亮（soft）；
 // - 其它（关于等）→ 无高亮。
-// query 分类（?category=）在静态站点构建期不可知，由客户端校正。
+// query 分类（?category=）与相册模式（?mode=）在静态站点构建期不可知，由客户端校正。
 const softCategory = !isHome && !isArchive && postCategory ? postCategory : "";
 ---
 
@@ -41,39 +47,89 @@ const softCategory = !isHome && !isArchive && postCategory ? postCategory : "";
      axe region 规则（内容必须处于某个 landmark 区域内） -->
 <nav id="category-bar-region" aria-label={i18n(I18nKey.categories)}>
 	<Card color="var(--card-bg)" radius="l" class="category-bar onload-animation mb-4 p-2" id="category-bar">
-		<div class="category-bar-inner flex gap-2 items-center">
-			<Chip
-				variant="tonal"
-				href={homeUrl}
-				selected={isHome}
-				label={i18n(I18nKey.home)}
-				class="shrink-0"
-			>
-				<Icon name="material-symbols:home" class="text-lg" aria-hidden="true" />
-			</Chip>
-			<Chip
-				variant="tonal"
-				href={archiveUrl}
-				selected={isArchive}
-				class="shrink-0"
-			>
-				{i18n(I18nKey.archive)}
-			</Chip>
+		<!-- 文章分类变体（非相册索引页） -->
+		<div data-bar="default" hidden={isAlbumsIndex}>
+			<div class="category-bar-inner flex gap-2 items-center">
+				<Chip
+					variant="tonal"
+					href={homeUrl}
+					selected={isHome}
+					label={i18n(I18nKey.home)}
+					class="shrink-0"
+				>
+					<Icon name="material-symbols:home" class="text-lg" aria-hidden="true" />
+				</Chip>
+				<Chip
+					variant="tonal"
+					href={archiveUrl}
+					selected={isArchive}
+					class="shrink-0"
+				>
+					{i18n(I18nKey.archive)}
+				</Chip>
 
-			<!-- 分类区：横向滚动 -->
-			<div class="category-bar-list flex gap-2 overflow-x-auto hide-scrollbar flex-1 min-w-0">
-				{categories.map((cat) => (
+				<!-- 分类区：横向滚动 -->
+				<div class="category-bar-list flex gap-2 overflow-x-auto hide-scrollbar flex-1 min-w-0">
+					{categories.map((cat) => (
+						<Chip
+							variant="tonal"
+							href={cat.url}
+							selected={false}
+							soft={cat.name === softCategory}
+							class="shrink-0"
+						>
+							{cat.name}
+							<span class="category-bar__count" aria-hidden="true">{cat.count}</span>
+						</Chip>
+					))}
+				</div>
+			</div>
+		</div>
+
+		<!-- 相册模式切换变体（仅 /albums/ 索引页） -->
+		<div data-bar="albums" hidden={!isAlbumsIndex}>
+			<div class="category-bar-inner flex gap-2 items-center">
+				<Chip
+					variant="tonal"
+					href={homeUrl}
+					selected={isHome}
+					label={i18n(I18nKey.home)}
+					class="shrink-0"
+				>
+					<Icon name="material-symbols:home" class="text-lg" aria-hidden="true" />
+				</Chip>
+				<Chip
+					variant="tonal"
+					href={archiveUrl}
+					selected={isArchive}
+					class="shrink-0"
+				>
+					{i18n(I18nKey.archive)}
+				</Chip>
+
+				<!-- 视图模式切换：所有图片 / 相册 -->
+				<div class="category-bar-list flex gap-2 overflow-x-auto hide-scrollbar flex-1 min-w-0" role="group" aria-label={i18n(I18nKey.albums)}>
 					<Chip
 						variant="tonal"
-						href={cat.url}
-						selected={false}
-						soft={cat.name === softCategory}
+						selected={isAlbumsIndex}
+						label={i18n(I18nKey.allPhotos)}
 						class="shrink-0"
+						data-albums-mode="photos"
 					>
-						{cat.name}
-						<span class="category-bar__count" aria-hidden="true">{cat.count}</span>
+						<Icon name="material-symbols:photo-library-outline-rounded" class="text-lg" aria-hidden="true" />
+						{i18n(I18nKey.allPhotos)}
 					</Chip>
-				))}
+					<Chip
+						variant="tonal"
+						selected={false}
+						label={i18n(I18nKey.albums)}
+						class="shrink-0"
+						data-albums-mode="albums"
+					>
+						<Icon name="material-symbols:collections-bookmark-outline-rounded" class="text-lg" aria-hidden="true" />
+						{i18n(I18nKey.albums)}
+					</Chip>
+				</div>
 			</div>
 		</div>
 	</Card>
@@ -113,7 +169,7 @@ const softCategory = !isHome && !isArchive && postCategory ? postCategory : "";
 		const params = new URLSearchParams(window.location.search);
 		const categoryParam = params.get("category");
 
-		let active: string;
+		let active;
 		if (pathname === "/") {
 			active = "__home__";
 		} else if (categoryParam) {
@@ -130,7 +186,21 @@ const softCategory = !isHome && !isArchive && postCategory ? postCategory : "";
 				? postCategory
 				: "";
 
-		const pills = bar.querySelectorAll<HTMLAnchorElement>("a.m3-chip");
+		// 变体切换：相册索引页显示「所有图片/相册」模式切换，其余页面显示文章分类
+		const isAlbumsIndex = pathname === "/albums";
+		for (const container of bar.querySelectorAll<HTMLElement>("[data-bar]")) {
+			container.toggleAttribute("hidden", container.dataset.bar !== (isAlbumsIndex ? "albums" : "default"));
+		}
+
+		// 相册模式选中态同步（?mode= 缺省视为所有图片）
+		if (isAlbumsIndex) {
+			const mode = params.get("mode") === "albums" ? "albums" : "photos";
+			for (const button of bar.querySelectorAll<HTMLElement>("[data-albums-mode]")) {
+				button.classList.toggle("m3-chip--selected", button.dataset.albumsMode === mode);
+			}
+		}
+
+		const pills = bar.querySelectorAll("a.m3-chip");
 		pills.forEach((pill) => {
 			const href = pill.getAttribute("href") || "";
 			const normalizedHref = href.replace(/\/+$/, "") || "/";
@@ -138,10 +208,10 @@ const softCategory = !isHome && !isArchive && postCategory ? postCategory : "";
 				active === ""
 					? false
 					: active === "__home__"
-					? normalizedHref === "/"
-					: active === "__archive__"
-						? href.includes("/archive/") && !href.includes("category=") && !href.includes("tag=")
-						: href.includes(`category=${encodeURIComponent(categoryParam!)}`);
+						? normalizedHref === "/"
+						: active === "__archive__"
+							? href.includes("/archive/") && !href.includes("category=") && !href.includes("tag=")
+							: href.includes(`category=${encodeURIComponent(categoryParam!)}`);
 			pill.classList.toggle("m3-chip--selected", isActive);
 
 			// 文章页所属分类弱高亮（primary-container 次级语义）
@@ -153,9 +223,35 @@ const softCategory = !isHome && !isArchive && postCategory ? postCategory : "";
 		});
 	}
 
-	syncCategoryBar();
+	// 相册模式切换：更新 URL 记忆并通知 swup 容器内的 AlbumSection
+	function handleBarClick(event: MouseEvent) {
+		const target = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-albums-mode]") : null;
+		if (!target) return;
 
-	// Swup 导航后 URL 变化，重新同步（首页/归档/分类筛选互跳）
+		const mode = target.dataset.albumsMode === "albums" ? "albums" : "photos";
+		const params = new URLSearchParams(window.location.search);
+		if (mode === "photos") {
+			params.delete("mode");
+		} else {
+			params.set("mode", "albums");
+		}
+		const search = params.toString();
+		history.replaceState(null, "", search ? `?${search}` : window.location.pathname);
+
+		document.dispatchEvent(new CustomEvent("albums:mode", { detail: { mode } }));
+		syncCategoryBar();
+	}
+
+	function bindCategoryBar() {
+		const bar = document.getElementById("category-bar");
+		bar?.removeEventListener("click", handleBarClick);
+		bar?.addEventListener("click", handleBarClick);
+	}
+
+	syncCategoryBar();
+	bindCategoryBar();
+
+	// Swup 导航后 URL 变化，重新同步（首页/归档/分类筛选/相册变体互跳）
 	if (window.swup?.hooks) {
 		window.swup.hooks.on("content:replace", syncCategoryBar);
 	} else {

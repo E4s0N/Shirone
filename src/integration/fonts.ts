@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
-import { loadConfigModule } from "./load-config.ts";
+import { loadConfigModule, loadPackageModule } from "./load-config.ts";
 import type { ResolvedShironesPaths } from "./types.ts";
 
 /**
@@ -329,10 +329,37 @@ export async function buildFontDeclarations(
 			(v) => v.source === "fontsource",
 		);
 		if (fontsourceVariants.length > 0) {
+			// Mirror of astro.config.mjs: resolve Fontsource fonts from the
+			// installed npm packages (user project first, then the package's
+			// own dependencies) instead of the remote fontsource provider,
+			// whose initialization requires reaching api.fontsource.org.
+			const { loadFontsourceFaces } = (await loadPackageModule(
+				paths,
+				"utils/fontsource-local.ts",
+			)) as {
+				loadFontsourceFaces: (
+					specifier: string,
+					roots: string[],
+				) => { src: string; unicodeRange?: string[] }[];
+			};
 			declarations.push({
-				provider: fontProviders.fontsource(),
+				provider: fontProviders.local(),
 				name: resolvedRole.family,
 				cssVariable: resolvedRole.cssVariable,
+				options: {
+					variants: fontsourceVariants.flatMap((variant) =>
+						loadFontsourceFaces(variant.file as string, [
+							paths.projectRoot,
+							paths.packageRoot,
+						]).map((face) => ({
+							src: [face.src],
+							weight: variant.weight,
+							style: variant.style,
+							display: resolvedRole.display,
+							...(face.unicodeRange ? { unicodeRange: face.unicodeRange } : {}),
+						})),
+					),
+				},
 				...fallbackOpts,
 			});
 		}

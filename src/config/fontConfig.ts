@@ -28,6 +28,7 @@ import { resolveFontOptions as resolve } from "../utils/font-options.ts";
  *   1. 安装字体包（如 `pnpm.cmd add @fontsource/inter`）；
  *   2. 设置 `source: "fontsource"`，并在 `file` 中填入对应的 CSS 路径（如 `"@fontsource/inter/400.css"`）；
  *   3. 将 `family` 设为对应的字体名称（如 `"Inter"`）。
+ *   字体从本地安装的 npm 包解析（不访问 fontsource CDN），离线构建可用。
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * 【修改后的验证命令】

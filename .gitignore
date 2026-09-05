@@ -6,7 +6,7 @@ dist/
 .content-backup/
 content.lock.json
 Shirone-Content/
-
+webgl-image
 # generated types
 .astro/
 

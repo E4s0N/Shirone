@@ -15,6 +15,8 @@ export type AlbumPhoto = {
 	camera?: string;
 	lens?: string;
 	settings?: string;
+	/** Live Photo 配对视频（本地相册为同名 .mov/.mp4/.webm sidecar） */
+	liveVideo?: string;
 };
 
 export type AlbumGroup = {
@@ -36,4 +38,10 @@ export type AlbumGroup = {
 export type AlbumIndexItem = Omit<AlbumGroup, "photos" | "password"> & {
 	photoCount: number;
 	protected: boolean;
+};
+
+/** 「所有图片」瀑布流条目：AlbumPhoto 附带所属相册信息（仅未加密相册） */
+export type WallPhoto = AlbumPhoto & {
+	album?: string;
+	albumId?: string;
 };
