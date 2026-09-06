@@ -22,7 +22,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 构建链中的 subset-fonts.mjs / check-fonts.mjs 直接 import .ts 配置
+          # （src/config/fontConfig.ts），需要 Node 22.18+ 默认开启的 type
+          # stripping；Node 20 会报 ERR_UNKNOWN_FILE_EXTENSION。
+          node-version: 22
           cache: "pnpm"
 
       - name: Install Dependencies
