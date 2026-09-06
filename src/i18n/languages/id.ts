@@ -143,7 +143,7 @@ export const id: Translation = {
 	[Key.imageLoadFailed]: "Gagal memuat gambar",
 	[Key.allPhotos]: "Semua foto",
 	[Key.viewerInfo]: "Info foto",
-	[Key.viewerZoomHint]: "Klik ganda atau gulir untuk zoom",
+	[Key.viewerZoomHint]: "Ketuk dua kali untuk zoom, geser untuk berganti",
 	[Key.photoBasicInfo]: "Info dasar",
 	[Key.photoCaptureParams]: "Parameter pengambilan",
 	[Key.photoFilename]: "Nama berkas",

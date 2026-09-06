@@ -142,7 +142,7 @@ export const es: Translation = {
 	[Key.imageLoadFailed]: "No se pudo cargar la imagen",
 	[Key.allPhotos]: "Todas las fotos",
 	[Key.viewerInfo]: "Info de la foto",
-	[Key.viewerZoomHint]: "Doble clic o rueda para zoom",
+	[Key.viewerZoomHint]: "Doble toque para zoom, desliza para cambiar",
 	[Key.photoBasicInfo]: "Información básica",
 	[Key.photoCaptureParams]: "Parámetros de captura",
 	[Key.photoFilename]: "Nombre de archivo",

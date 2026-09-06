@@ -15,11 +15,22 @@ export const RENDER_CONFIG = {
 	TEXTURE_RETRY_SCALE_FACTOR: 0.75,
 	/** 双击检测间隔（ms） */
 	DOUBLE_CLICK_DELAY: 300,
+	/** 触发切换的最小横向滑动距离（CSS px） */
+	SWIPE_DISTANCE_PX: 60,
+	/** 横向位移需超过纵向位移的倍数，避免误判斜向/纵向手势 */
+	SWIPE_AXIS_RATIO: 1.5,
+	/** 翻页滑动动画时长（ms）——可感知的平滑滑动 */
+	PAGER_ANIMATE_MS: 450,
 } as const;
 
 /** easeOutQuart：与 M3 emphasized-decelerate 近似的 JS 补间曲线 */
 export function easeOutQuart(t: number): number {
 	return 1 - (1 - t) ** 4;
+}
+
+/** easeInOutCubic：点击触发的翻页滑动曲线，起止平滑、位移全程可感知 */
+export function easeInOutCubic(t: number): number {
+	return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
 export function checkWebGLSupport(): boolean {

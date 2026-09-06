@@ -141,7 +141,7 @@ export const en: Translation = {
 	[Key.imageLoadFailed]: "Failed to load image",
 	[Key.allPhotos]: "All photos",
 	[Key.viewerInfo]: "Photo info",
-	[Key.viewerZoomHint]: "Double-click or scroll to zoom",
+	[Key.viewerZoomHint]: "Double-tap to zoom, swipe to switch",
 	[Key.photoBasicInfo]: "Basic info",
 	[Key.photoCaptureParams]: "Capture parameters",
 	[Key.photoFilename]: "Filename",

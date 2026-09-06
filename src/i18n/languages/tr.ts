@@ -142,7 +142,7 @@ export const tr: Translation = {
 	[Key.imageLoadFailed]: "Görsel yüklenemedi",
 	[Key.allPhotos]: "Tüm fotoğraflar",
 	[Key.viewerInfo]: "Fotoğraf bilgisi",
-	[Key.viewerZoomHint]: "Yakınlaştırmak için çift tıklayın veya kaydırın",
+	[Key.viewerZoomHint]: "Yakınlaştırmak için çift dokun, geçiş için yatay kaydır",
 	[Key.photoBasicInfo]: "Temel bilgiler",
 	[Key.photoCaptureParams]: "Çekim parametreleri",
 	[Key.photoFilename]: "Dosya adı",

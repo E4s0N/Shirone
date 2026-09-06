@@ -48,8 +48,49 @@ let showInfo = $state(false);
 let isMobile = $state(false);
 let hintVisible = $state(false);
 let meta = $state<ViewerMetadata>({});
-// 缩略图占位层：高清纹理就绪前先显示小图（淡出延迟到 canvas 出图之后）
-let thumbShown = $state(false);
+// 缩略图预览：加载期间画布渲染当前照片的缩略图纹理（引擎 setPreview），
+// 翻页拖拽时与邻图并排跟手，不再使用 DOM 占位层
+const thumbImages = new Map<string, HTMLImageElement>();
+
+function getThumbImage(photo: ViewerPhoto): HTMLImageElement {
+	let img = thumbImages.get(photo.src);
+	if (!img) {
+		img = new Image();
+		img.src = photo.thumbnail || photo.src;
+		thumbImages.set(photo.src, img);
+	}
+	return img;
+}
+
+$effect(() => {
+	const photo = photos[index];
+	if (!photo || !engine) return;
+	const img = getThumbImage(photo);
+	const deliver = () => engine?.setPreview(photo.src, img);
+	if (img.complete && img.naturalWidth > 0) {
+		deliver();
+	} else {
+		img.addEventListener("load", deliver, { once: true });
+	}
+});
+// 切换动画：1 = 下一张（新内容从右进入），-1 = 上一张（从左进入）
+/** 退场中：旧图淡出完成后再真正交换照片并加载 */
+let exiting = $state(false);
+let exitTimer: ReturnType<typeof setTimeout> | null = null;
+// 取图进度（total 为 0 表示无 Content-Length）
+let progress = $state<{ loaded: number; total: number } | null>(null);
+
+const SWITCH_EXIT_MS = 160;
+
+const progressText = $derived.by(() => {
+	if (progress) {
+		if (progress.total > 0) {
+			return `${Math.min(100, Math.round((progress.loaded / progress.total) * 100))}%`;
+		}
+		return formatBytes(progress.loaded);
+	}
+	return i18n(I18nKey.imageLoading);
+});
 // Live Photo
 let liveVideo: HTMLVideoElement | undefined = $state();
 let livePlaying = $state(false);
@@ -217,30 +258,31 @@ function close() {
 
 // ------------------------------------------------------------ 丝滑切换
 
-// 邻图预热：当前图就绪后把 ±1 张的字节取入 Worker 缓存，切换即近乎直出
+// 邻图预热 + 告知引擎邻图 src（翻页跟手拖拽用）
 const preloaded = new Set<string>();
 
 function preloadNeighbors() {
 	if (!engine) return;
-	for (const offset of [-1, 1]) {
-		const neighbor = photos[index + offset];
+	const prev = photos[index - 1] ?? null;
+	const next = photos[index + 1] ?? null;
+	engine.updateNeighbors(
+		prev?.src ?? null,
+		next?.src ?? null,
+		{
+			prev: prev ? getThumbImage(prev) : undefined,
+			next: next ? getThumbImage(next) : undefined,
+		},
+	);
+	for (const neighbor of [prev, next]) {
 		if (!neighbor || preloaded.has(neighbor.src)) continue;
 		preloaded.add(neighbor.src);
 		engine.preload(neighbor.src);
 	}
-}
-
-$effect(() => {
-	if (loading) {
-		thumbShown = Boolean(current?.thumbnail);
-	} else if (thumbShown) {
-		// 高清已出纹理但 canvas 尚未绘制完成，延迟淡出避免闪一帧旧图
-		const timer = setTimeout(() => {
-			thumbShown = false;
-		}, 300);
-		return () => clearTimeout(timer);
+	// 提前解码 ±2 张的缩略图：连续快滑时邻图纹理即取即用
+	for (const photo of [photos[index - 2], photos[index + 2]]) {
+		if (photo) getThumbImage(photo);
 	}
-});
+}
 
 // ------------------------------------------------------------ Live Photo
 
@@ -302,13 +344,30 @@ function handleLiveBadgeLeave(event: PointerEvent) {
 
 function goTo(next: number) {
 	if (next < 0 || next >= photos.length || next === index) return;
+	stopLivePhoto();
+	if (loading) {
+		// 旧画面已隐藏（上一次切换尚在加载）：直接交换
+		applySwitch(next);
+		return;
+	}
+	// 先淡出旧图（160ms），再交换并加载新图
+	exiting = true;
+	if (exitTimer !== null) clearTimeout(exitTimer);
+	exitTimer = setTimeout(() => {
+		exitTimer = null;
+		exiting = false;
+		applySwitch(next);
+	}, SWITCH_EXIT_MS);
+}
+
+function applySwitch(next: number, skipLoad = false) {
 	index = next;
-	loading = true;
+	if (!skipLoad) loading = true;
 	loadFailed = false;
 	hintVisible = false;
 	meta = {};
-	stopLivePhoto();
-	if (engine) {
+	progress = null;
+	if (engine && !skipLoad) {
 		engine
 			.loadImage(photos[index].src)
 			.catch(() => {
@@ -321,8 +380,25 @@ function goTo(next: number) {
 	scrollStripToActive();
 }
 
-const previous = () => goTo(index - 1);
-const next = () => goTo(index + 1);
+function cancelExit(): void {
+	if (exitTimer !== null) {
+		clearTimeout(exitTimer);
+		exitTimer = null;
+	}
+	exiting = false;
+}
+
+const previous = () => {
+	cancelExit();
+	if (index - 1 >= 0 && engine?.pageTo(-1)) return;
+	goTo(index - 1);
+};
+
+const next = () => {
+	cancelExit();
+	if (index + 1 < photos.length && engine?.pageTo(1)) return;
+	goTo(index + 1);
+};
 
 // 缩略图条：当前项滚动到可视中心（chronoframe GalleryThumbnail 行为）
 function scrollStripToActive() {
@@ -510,11 +586,33 @@ onMount(() => {
 						if (hasError) loadFailed = true;
 						if (!isLoading && !hasError) preloadNeighbors();
 					},
+					onProgress: (loaded, total) => {
+						progress = { loaded, total };
+					},
+					// 翻页拖拽提交：committed 时引擎已把邻图显示在画布上，只更新索引
+					// 并静默升级全分辨率；否则走普通加载路径（快速轻扫早于解码完成）
+					onPageChange: (direction, committed) => {
+						const target = index + direction;
+						if (target < 0 || target >= photos.length) return;
+						applySwitch(target, committed);
+						if (committed) engine?.refreshCurrent(photos[target].src);
+						preloadNeighbors();
+					},
+					// 移动端未放大时单指左右滑动切换照片
+					onSwipe: (direction) => {
+						if (direction === "left") {
+							next();
+						} else {
+							previous();
+						}
+					},
 					onMetadata: (value) => {
 						meta = value;
 					},
 				},
 			);
+			// 挂载即告知邻图：首图尚未加载完成时也能翻页跟手切换
+			preloadNeighbors();
 			engine
 				.loadImage(photos[index].src)
 				.catch(() => {
@@ -593,26 +691,21 @@ onMount(() => {
 	<div class="flex h-full w-full">
 		<!-- 主区域：画布舞台 + 缩略图条 -->
 		<div class="flex min-w-0 flex-1 flex-col">
-			<div class="group relative min-h-0 flex-1 overflow-hidden">
-				<canvas
-					bind:this={canvas}
-					class="absolute inset-0 h-full w-full cursor-grab touch-none outline-none active:cursor-grabbing"
-					role="img"
-					aria-label={current?.alt || i18n(I18nKey.imageViewer)}
-				></canvas>
+				<div class="group relative min-h-0 flex-1 overflow-hidden">
+					<!-- 画布层：切换时旧图淡出退场；加载期间由引擎渲染缩略图预览，
+						翻页拖拽全程在画布内跟手。按下时停掉 Live Photo 播放 -->
+					<div
+						onpointerdown={stopLivePhoto}
+						class={`absolute inset-0 transition-opacity duration-150 ease-[var(--m3e-easing-standard)] motion-reduce:transition-none ${exiting ? "opacity-0" : "opacity-100"}`}
+					>
+						<canvas
+							bind:this={canvas}
+							class="absolute inset-0 h-full w-full cursor-grab touch-none outline-none active:cursor-grabbing"
+							role="img"
+							aria-label={current?.alt || i18n(I18nKey.imageViewer)}
+						></canvas>
+					</div>
 
-				<!-- 缩略图占位层：大图取图/解码期间先显示小图，避免黑屏或旧帧突兀。
-					按照片重挂载，防止换图时浏览器继续显示上一张的缩略图 -->
-				{#if thumbShown && current?.thumbnail}
-					{#key current.src}
-						<img
-							src={current.thumbnail}
-							alt=""
-							aria-hidden="true"
-							class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-90 transition-opacity duration-300 ease-[var(--m3e-easing-standard)]"
-						/>
-					{/key}
-				{/if}
 
 				<!-- Live Photo 视频层：播放时淡入覆盖在 canvas 上，结束后淡回静态图 -->
 				{#if currentLiveVideo}
@@ -630,13 +723,18 @@ onMount(() => {
 				{/if}
 
 				{#if loading || loadFailed}
-					<div class="pointer-events-none absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-[var(--shape-corner-m)] bg-[var(--surface-container-high)] px-4 py-2 text-[var(--on-surface)]" style="font: var(--m3e-type-body-medium)" aria-live="polite">
+					<!-- 加载指示：右下角 + 取图进度（图片覆盖层可读性例外：固定黑底玻璃） -->
+					<div
+						class="absolute right-4 bottom-4 flex items-center gap-2 rounded-[var(--shape-corner-full)] bg-black/55 px-3.5 py-2 text-white backdrop-blur-sm"
+						style="font: var(--m3e-type-body-medium)"
+						aria-live="polite"
+					>
 						{#if loadFailed}
 							<Icon icon="material-symbols:error-outline-rounded" aria-hidden="true" class="h-5 w-5" />
 							<span>{i18n(I18nKey.imageLoadFailed)}</span>
 						{:else}
-							<span class="h-4 w-4 animate-spin rounded-full border-2 border-[var(--outline-variant)] border-t-[var(--primary)]" aria-hidden="true"></span>
-							<span>{i18n(I18nKey.imageLoading)}</span>
+							<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden="true"></span>
+							<span class="tabular-nums">{progressText}</span>
 						{/if}
 					</div>
 				{/if}

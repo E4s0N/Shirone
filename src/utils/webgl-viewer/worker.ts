@@ -160,15 +160,46 @@ function touchCache(src: string, entry: Promise<FetchEntry>): void {
 	}
 }
 
+async function readBodyWithProgress(
+	response: Response,
+	onProgress?: (loaded: number, total: number) => void,
+): Promise<Blob> {
+	const totalHeader = response.headers.get("Content-Length");
+	const total = totalHeader ? Number(totalHeader) : 0;
+	if (!response.body || !onProgress) return response.blob();
+
+	const reader = response.body.getReader();
+	const chunks: BlobPart[] = [];
+	let loaded = 0;
+	let lastReportedAt = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		if (!value) continue;
+		chunks.push(value as BlobPart);
+		loaded += value.length;
+		const now = Date.now();
+		// 进度上报限频 ~10 次/秒，避免消息风暴
+		if (now - lastReportedAt >= 100) {
+			lastReportedAt = now;
+			onProgress(loaded, total);
+		}
+	}
+	return new Blob(chunks, {
+		type: response.headers.get("Content-Type") ?? "application/octet-stream",
+	});
+}
+
 async function fetchEntry(
 	src: string,
 	signal?: AbortSignal,
+	onProgress?: (loaded: number, total: number) => void,
 ): Promise<FetchEntry> {
 	const response = await fetch(src, { mode: "cors", signal });
 	if (!response.ok) {
 		throw new Error(`Failed to fetch image: ${response.status}`);
 	}
-	const blob = await response.blob();
+	const blob = await readBodyWithProgress(response, onProgress);
 
 	// EXIF 与直方图解析失败不影响图片本身的展示
 	let exif: ExifSummary | undefined;
@@ -195,7 +226,11 @@ async function fetchEntry(
 	return { blob, exif, histogram, fileSize: blob.size };
 }
 
-function getEntry(src: string, signal?: AbortSignal): Promise<FetchEntry> {
+function getEntry(
+	src: string,
+	signal?: AbortSignal,
+	onProgress?: (loaded: number, total: number) => void,
+): Promise<FetchEntry> {
 	const cached = blobCache.get(src);
 	if (cached) {
 		// 命中缓存即刷新 LRU 位次
@@ -203,7 +238,7 @@ function getEntry(src: string, signal?: AbortSignal): Promise<FetchEntry> {
 		blobCache.set(src, cached);
 		return cached;
 	}
-	const entry = fetchEntry(src, signal).catch((error: unknown) => {
+	const entry = fetchEntry(src, signal, onProgress).catch((error: unknown) => {
 		blobCache.delete(src);
 		throw error;
 	});
@@ -222,6 +257,37 @@ workerScope.onmessage = async (event: MessageEvent) => {
 		return;
 	}
 
+	if (type === "decode-neighbor") {
+		// 翻页拖拽：解码相邻照片（通常已命中 blob 缓存）供引擎建第二纹理
+		const requestId = payload?.requestId;
+		if (typeof payload?.src !== "string" || requestId === undefined) return;
+		void (async () => {
+			try {
+				const entry = await getEntry(payload.src);
+				const bitmap = await createImageBitmap(entry.blob);
+				workerScope.postMessage(
+					{
+						type: "neighbor",
+						payload: {
+							bitmap,
+							requestId,
+							exif: entry.exif,
+							histogram: entry.histogram,
+							fileSize: entry.fileSize,
+						},
+					},
+					[bitmap],
+				);
+			} catch {
+				workerScope.postMessage({
+					type: "neighbor-error",
+					payload: { requestId },
+				});
+			}
+		})();
+		return;
+	}
+
 	if (type !== "load") return;
 
 	// 中断上一次尚未完成的取图：快速切换时旧请求本就是过期代际，直接让路
@@ -233,7 +299,18 @@ workerScope.onmessage = async (event: MessageEvent) => {
 	activeLoadSrc = payload.src;
 
 	try {
-		const entry = await getEntry(payload.src, controller.signal);
+		const entry = await getEntry(
+			payload.src,
+			controller.signal,
+			payload.silent
+				? undefined
+				: (loaded, total) => {
+						workerScope.postMessage({
+							type: "progress",
+							payload: { loaded, total, requestId: payload.requestId },
+						});
+					},
+		);
 		const imageBitmap = await createImageBitmap(entry.blob);
 		workerScope.postMessage(
 			{

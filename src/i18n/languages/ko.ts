@@ -139,7 +139,7 @@ export const ko: Translation = {
 	[Key.imageLoadFailed]: "이미지를 로드하지 못했습니다",
 	[Key.allPhotos]: "모든 사진",
 	[Key.viewerInfo]: "사진 정보",
-	[Key.viewerZoomHint]: "더블클릭 또는 휠로 확대/축소",
+	[Key.viewerZoomHint]: "더블탭으로 확대, 좌우로 스와이프해 전환",
 	[Key.photoBasicInfo]: "기본 정보",
 	[Key.photoCaptureParams]: "촬영 매개변수",
 	[Key.photoFilename]: "파일명",

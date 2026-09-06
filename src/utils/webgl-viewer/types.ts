@@ -49,6 +49,16 @@ export interface ViewerCallbacks {
 	onTransformChange?: (transform: Transform) => void;
 	/** 图片加载成功后返回元数据（EXIF 解析或直方图采样失败时字段省略） */
 	onMetadata?: (metadata: ViewerMetadata) => void;
+	/** 取图进度（total 为 0 表示服务器未返回 Content-Length，仅 loaded 可信） */
+	onProgress?: (loaded: number, total: number) => void;
+	/**
+	 * 翻页拖拽提交（direction 1 = 下一张）。
+	 * committed 为 true 时引擎已把邻图显示为当前画面，宿主只需更新索引；
+	 * 为 false 时邻图纹理未就绪，宿主需走普通加载路径。
+	 */
+	onPageChange?: (direction: -1 | 1, committed: boolean) => void;
+	/** 移动端未放大状态下单指横向滑动（left = 手指向左 = 看下一张） */
+	onSwipe?: (direction: "left" | "right") => void;
 }
 
 /**

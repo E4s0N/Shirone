@@ -60,12 +60,12 @@ test("查看器：缩略图条 + 信息栏 + 切换", async ({ page }) => {
 		/(基本信息|Basic info|基本情報|기본 정보|Información básica|ข้อมูลพื้นฐาน|Temel bilgiler|Thông tin cơ bản|Info dasar)/,
 	);
 
-	// 键盘切换 → 计数变化
-	const before = await counter.textContent();
-	await page.keyboard.press("ArrowRight");
-	await page.waitForTimeout(300);
-	const after = await counter.textContent();
-	expect(after).not.toBe(before);
+	// 键盘切换 → 计数变化（翻页动画 ~250ms + 提交）
+		const before = await counter.textContent();
+		await page.keyboard.press("ArrowRight");
+		await page.waitForTimeout(600);
+		const after = await counter.textContent();
+		expect(after).not.toBe(before);
 
 	// 点击缩略图切换
 	const thumbs = viewer.locator("img[loading='lazy']").last();
@@ -142,4 +142,83 @@ test("所有图片瀑布流：Live Photo 悬浮播放", async ({ page }) => {
 	await expect(liveItem.locator("video")).toHaveClass(/opacity-0/);
 
 	expect(errors).toEqual([]);
+});
+
+test.describe("移动端滑动切换", () => {
+	async function swipe(
+		cdp: CDPSession,
+		x0: number,
+		y0: number,
+		x1: number,
+		y1: number,
+	) {
+		await cdp.send("Input.dispatchTouchEvent", {
+			type: "touchStart",
+			touchPoints: [{ x: x0, y: y0 }],
+		});
+		for (let i = 1; i <= 5; i++) {
+			await cdp.send("Input.dispatchTouchEvent", {
+				type: "touchMove",
+				touchPoints: [
+					{ x: x0 + ((x1 - x0) * i) / 5, y: y0 + ((y1 - y0) * i) / 5 },
+				],
+			});
+		}
+		await cdp.send("Input.dispatchTouchEvent", {
+			type: "touchEnd",
+			touchPoints: [],
+		});
+	}
+
+	test("未放大时左右滑动切换，纵向滑动不切换", async ({ page }) => {
+		const errors: string[] = [];
+		page.on("pageerror", (error) => errors.push(error.message));
+
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto("/albums/AcgExample/", { waitUntil: "networkidle" });
+		await page.locator(".album-gallery__item").first().click();
+
+		const viewer = page.locator(".webgl-viewer-root > div");
+		await viewer.waitFor({ state: "visible" });
+		const counter = viewer.locator("span", { hasText: /^\d+ \/ \d+$/ });
+		await expect(counter).toHaveText(/1 \/ 22/);
+
+		const cdp = (await page.context().newCDPSession(page)) as CDPSession;
+
+		// 单指左滑 → 下一张
+		await swipe(cdp, 300, 400, 120, 400);
+		await expect(counter).toHaveText(/2 \/ 22/);
+
+		// 单指右滑 → 上一张
+		await swipe(cdp, 120, 400, 300, 400);
+		await expect(counter).toHaveText(/1 \/ 22/);
+
+		// 纵向滑动不切换
+		await swipe(cdp, 200, 320, 200, 440);
+		await expect(counter).toHaveText(/1 \/ 22/);
+
+		// 双指张开放大后，单指拖拽是平移而非切换（捏合为纯几何判定，无时间窗）
+		await cdp.send("Input.dispatchTouchEvent", {
+			type: "touchStart",
+			touchPoints: [
+				{ x: 160, y: 400 },
+				{ x: 240, y: 400 },
+			],
+		});
+		await cdp.send("Input.dispatchTouchEvent", {
+			type: "touchMove",
+			touchPoints: [
+				{ x: 60, y: 400 },
+				{ x: 340, y: 400 },
+			],
+		});
+		await cdp.send("Input.dispatchTouchEvent", {
+			type: "touchEnd",
+			touchPoints: [],
+		});
+		await swipe(cdp, 300, 400, 120, 400);
+		await expect(counter).toHaveText(/1 \/ 22/);
+
+		expect(errors).toEqual([]);
+	});
 });

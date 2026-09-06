@@ -134,7 +134,7 @@ export const zh_TW: Translation = {
 	[Key.imageLoadFailed]: "圖片載入失敗",
 	[Key.allPhotos]: "所有圖片",
 	[Key.viewerInfo]: "圖片資訊",
-	[Key.viewerZoomHint]: "雙擊或滾輪縮放",
+	[Key.viewerZoomHint]: "雙擊縮放，左右滑動切換",
 	[Key.photoBasicInfo]: "基本資訊",
 	[Key.photoCaptureParams]: "拍攝參數",
 	[Key.photoFilename]: "檔案名稱",

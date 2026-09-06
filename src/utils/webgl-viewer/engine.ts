@@ -10,6 +10,7 @@ import { HISTOGRAM_SAMPLE, histogramFromImageData } from "./histogram";
 import { createProgram } from "./shaders";
 import {
 	clamp,
+	easeInOutCubic,
 	easeOutQuart,
 	getMaxTextureSize,
 	RENDER_CONFIG,
@@ -17,12 +18,14 @@ import {
 } from "./support";
 import type {
 	Animation,
+	ExifSummary,
 	HistogramData,
 	ImageSource,
 	Tile,
 	Transform,
 	ViewerCallbacks,
 	ViewerEngineConfig,
+	ViewerMetadata,
 } from "./types";
 
 const DEFAULT_CONFIG: ViewerEngineConfig = {
@@ -36,6 +39,33 @@ const DEFAULT_CONFIG: ViewerEngineConfig = {
 	limitToBounds: true,
 	centerOnInit: true,
 };
+
+/** 邻图就绪纹理：按视口尺寸降采样，供翻页拖拽无缝衔接 */
+interface NeighborAsset {
+	texture: WebGLTexture;
+	quad: { w: number; h: number; tx: number; ty: number };
+	source: ImageSource;
+	meta: ViewerMetadata;
+	/** 来自全图解码（true）或缩略图兜底（false）；清晰版到位后覆盖兜底版 */
+	crisp: boolean;
+}
+
+/** 翻页拖拽状态：未放大时单指拖动，当前图与邻图并排跟手 */
+interface PagerState {
+	/** 1 = 邻图在右侧（下一张），-1 = 左侧（上一张），0 = 无邻图（仅阻尼回弹） */
+	direction: 1 | -1 | 0;
+	/** 跟手位移（canvas 设备像素） */
+	dx: number;
+	/** 拖出的邻图 src（0 方向时为 null）；纹理查 readyNeighbors */
+	src: string | null;
+	requestId: number;
+	animating: boolean;
+	target: number;
+	/** 最近位移采样（用于计算轻扫速度） */
+	history: Array<{ dx: number; t: number }>;
+}
+
+const DOUBLE_TAP_SLOP_PX = 50;
 
 export class WebGLImageViewerEngine {
 	private canvas: HTMLCanvasElement;
@@ -64,6 +94,31 @@ export class WebGLImageViewerEngine {
 	private touchState: {
 		lastDistance: number;
 	} | null = null;
+	/** 当前触控手势的起点（第一根手指落下处），用于滑动切换判定 */
+	private touchGestureStart: { x: number; y: number } | null = null;
+	/** 本次手势中出现过双指缩放：缩放过的手势不触发滑动切换 */
+	private touchGesturePinched = false;
+
+	// ------------------------------------------------------------ 翻页拖拽
+
+	private neighborSrcs: { prev: string | null; next: string | null } = {
+		prev: null,
+		next: null,
+	};
+	/** 已解码的邻图纹理（src → 资产），加载完成后预 warm，拖拽即取即用 */
+	private readyNeighbors = new Map<string, NeighborAsset>();
+	/** 在飞的邻图解码请求：requestId → src */
+	private neighborRequests = new Map<number, string>();
+	/** 当前照片的缩略图预览纹理（加载期间画布的可视内容，可跟手翻页） */
+	private preview: {
+		src: string;
+		texture: WebGLTexture;
+		quad: { w: number; h: number; tx: number; ty: number };
+	} | null = null;
+	private pager: PagerState | null = null;
+	private pagerRequestCounter = 0;
+	private pagerRafId: number | null = null;
+	private pagerLastMove: { x: number; t: number } | null = null;
 	private lastClickTime = 0;
 	private lastTouchTime = 0;
 	private lastTouchPosition: { x: number; y: number } | null = null;
@@ -170,6 +225,21 @@ export class WebGLImageViewerEngine {
 		this.worker.onmessage = (event: MessageEvent) => {
 			const { type, payload } = event.data;
 			if (!this.isCurrentRequest(payload?.requestId)) return;
+			if (type === "progress") {
+				this.callbacks.onProgress?.(
+					Number(payload.loaded) || 0,
+					Number(payload.total) || 0,
+				);
+				return;
+			}
+			if (type === "neighbor") {
+				this.applyNeighborBitmap(payload);
+				return;
+			}
+			if (type === "neighbor-error") {
+				this.neighborRequests.delete(payload?.requestId);
+				return;
+			}
 			if (type === "loaded") {
 				const rendered = this.applyDecodedImage(payload.imageBitmap);
 				if (rendered) {
@@ -250,6 +320,8 @@ export class WebGLImageViewerEngine {
 		// 丢弃上一张的画面：切换加载期间 render 只清屏不绘制旧图，
 		// 残影交给缩略图占位层替代
 		this.loaded = false;
+		this.cancelPager();
+		this.clearPreview();
 		this.render();
 		this.callbacks.onLoadChange?.(true, false);
 
@@ -281,6 +353,211 @@ export class WebGLImageViewerEngine {
 		this.worker.postMessage({
 			type: "preload",
 			payload: { src: new URL(src, self.location.origin).toString() },
+		});
+	}
+
+	/**
+	 * 桌面端点击切换：以翻页动画滑向相邻照片。
+	 * 返回 true 表示动画已启动（结束时引擎触发 onPageChange）；
+	 * 返回 false 表示无法动画（加载中/纹理未预热），宿主应走淡出切换。
+	 */
+	public pageTo(direction: 1 | -1): boolean {
+		if (!this.worker || !this.loaded) return false;
+		if (this.pager?.animating) this.finishPagerAnimation();
+		if (this.pager) return false;
+		const src =
+			direction === 1 ? this.neighborSrcs.next : this.neighborSrcs.prev;
+		if (!src) return false;
+		if (!this.readyNeighbors.get(src)) {
+			this.requestNeighborDecode(src);
+			return false;
+		}
+		this.pager = {
+			direction,
+			dx: 0,
+			src,
+			requestId: ++this.pagerRequestCounter,
+			animating: false,
+			target: 0,
+			history: [],
+		};
+		this.animatePagerTo(-direction * this.canvas.width, {
+			duration: RENDER_CONFIG.PAGER_ANIMATE_MS,
+			easing: easeInOutCubic,
+		});
+		return true;
+	}
+
+	/** 告知相邻照片的 src：预解码邻图纹理（通常命中 blob 缓存），翻页拖拽即取即用 */
+	public updateNeighbors(
+		prev: string | null,
+		next: string | null,
+		images?: { prev?: HTMLImageElement; next?: HTMLImageElement },
+	): void {
+		this.neighborSrcs = { prev, next };
+		const wanted = new Set<string>();
+		if (prev) wanted.add(prev);
+		if (next) wanted.add(next);
+		// 丢弃不再是邻图的就绪纹理
+		for (const [src, asset] of this.readyNeighbors) {
+			if (!wanted.has(src)) {
+				this.gl.deleteTexture(asset.texture);
+				this.readyNeighbors.delete(src);
+			}
+		}
+		for (const src of wanted) {
+			const existing = this.readyNeighbors.get(src);
+			if (existing?.crisp) continue; // 已有清晰纹理
+			// 缩略图即时建纹理兜底（秒出），解码完成后被更清晰的纹理覆盖
+			if (src === prev && images?.prev) {
+				this.ensureNeighborThumbAsset(src, images.prev);
+			} else if (src === next && images?.next) {
+				this.ensureNeighborThumbAsset(src, images.next);
+			}
+			if (!this.readyNeighbors.get(src)?.crisp) {
+				this.requestNeighborDecode(src);
+			}
+		}
+	}
+
+	/** 用缩略图立即构建邻图纹理；解码完成后会被更清晰的纹理覆盖 */
+	private ensureNeighborThumbAsset(
+		src: string,
+		image: HTMLImageElement,
+	): void {
+		const naturalWidth = image.naturalWidth || image.width;
+		const naturalHeight = image.naturalHeight || image.height;
+		if (!naturalWidth || !naturalHeight) {
+			image.addEventListener(
+				"load",
+				() => this.ensureNeighborThumbAsset(src, image),
+				{ once: true },
+			);
+			return;
+		}
+		const built = this.uploadFittedTexture(image, naturalWidth, naturalHeight);
+		if (!built) return;
+		// 异步构建期间可能已不再是邻图
+		if (src !== this.neighborSrcs.prev && src !== this.neighborSrcs.next) {
+			this.gl.deleteTexture(built.texture);
+			return;
+		}
+		const existing = this.readyNeighbors.get(src);
+		if (existing) this.gl.deleteTexture(existing.texture);
+		this.readyNeighbors.set(src, {
+			texture: built.texture,
+			quad: built.quad,
+			source: built.resized,
+			meta: { width: naturalWidth, height: naturalHeight },
+			crisp: false,
+		});
+		this.render();
+	}
+
+	/** 提供当前照片的缩略图作为加载期间的画布预览（全分辨率就绪后自动释放） */
+	public setPreview(src: string, image: HTMLImageElement): void {
+		if (!this.program) return;
+		if (this.preview?.src === src) return;
+		if (this.loaded && this.lastRequestedSrc === src) return;
+		const naturalWidth = image.naturalWidth || image.width;
+		const naturalHeight = image.naturalHeight || image.height;
+		if (!naturalWidth || !naturalHeight) return;
+		const built = this.uploadFittedTexture(image, naturalWidth, naturalHeight);
+		if (!built) return;
+		this.clearPreview();
+		this.preview = { src, texture: built.texture, quad: built.quad };
+		if (!this.loaded) this.render();
+	}
+
+	private clearPreview(): void {
+		if (this.preview) {
+			this.gl.deleteTexture(this.preview.texture);
+			this.preview = null;
+		}
+	}
+
+	/** 把任意图像源按视口适配尺寸缩放并上传为纹理 */
+	private uploadFittedTexture(
+		source: CanvasImageSource,
+		sourceWidth: number,
+		sourceHeight: number,
+	): {
+		texture: WebGLTexture;
+		quad: { w: number; h: number; tx: number; ty: number };
+		resized: HTMLCanvasElement;
+	} | null {
+		const fit = Math.min(
+			this.canvas.width / sourceWidth,
+			this.canvas.height / sourceHeight,
+		);
+		const width = Math.max(1, Math.round(sourceWidth * fit));
+		const height = Math.max(1, Math.round(sourceHeight * fit));
+		const resized = this.resizeSource(source, width, height);
+		if (!resized) return null;
+		const texture = this.gl.createTexture();
+		if (!texture) return null;
+		const { gl } = this;
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texImage2D(
+			gl.TEXTURE_2D,
+			0,
+			gl.RGBA,
+			gl.RGBA,
+			gl.UNSIGNED_BYTE,
+			resized,
+		);
+		if (gl.getError() !== gl.NO_ERROR) {
+			gl.deleteTexture(texture);
+			return null;
+		}
+		return {
+			texture,
+			quad: {
+				w: width,
+				h: height,
+				tx: (this.canvas.width - width) / 2,
+				ty: (this.canvas.height - height) / 2,
+			},
+			resized,
+		};
+	}
+
+	/** 邻图纹理已预热但解码仍在飞时去重 */
+	private requestNeighborDecode(src: string): void {
+		if (!this.worker) return;
+		for (const pending of this.neighborRequests.values()) {
+			if (pending === src) return;
+		}
+		const requestId = ++this.pagerRequestCounter;
+		this.neighborRequests.set(requestId, src);
+		this.worker.postMessage({
+			type: "decode-neighbor",
+			payload: {
+				src: new URL(src, self.location.origin).toString(),
+				requestId,
+			},
+		});
+	}
+
+	/**
+	 * 静默升级当前照片到全分辨率（翻页提交后调用）：
+	 * 不清屏、不触发加载状态，新纹理就绪后原位替换。
+	 */
+	public refreshCurrent(src: string): void {
+		if (!this.worker) return;
+		const requestId = ++this.requestCounter;
+		this.currentRequestId = requestId;
+		this.worker.postMessage({
+			type: "load",
+			payload: {
+				src: new URL(src, self.location.origin).toString(),
+				requestId,
+				silent: true,
+			},
 		});
 	}
 
@@ -341,6 +618,9 @@ export class WebGLImageViewerEngine {
 	private applyDecodedImage(source: ImageSource): boolean {
 		const dimensions = this.getSourceDimensions(source);
 		if (!dimensions) return false;
+
+		// 全分辨率就绪：加载期缩略图预览纹理不再需要
+		this.clearPreview();
 
 		this.image = source;
 		this.loaded = true;
@@ -789,73 +1069,208 @@ export class WebGLImageViewerEngine {
 	// ------------------------------------------------------------ 渲染
 
 	private render(): void {
-		if (!this.program || (!this.texture && !this.useTiles)) return;
+		if (!this.program) return;
+		if (this.pager) {
+			this.renderPagerFrame();
+			return;
+		}
 		const { gl } = this;
 
 		try {
 			if (gl.isContextLost()) return;
 
 			if (!this.loaded) {
-				// 切换/加载期间：只清屏等待新图，避免上一张的残影
-				gl.clear(gl.COLOR_BUFFER_BIT);
+				// 加载期间：绘制当前照片的缩略图预览（跟随翻页拖拽），无预览则清屏
+				if (!this.beginFrame()) return;
+				const preview = this.preview;
+				if (preview) {
+					this.drawQuad(
+						preview.texture,
+						preview.quad,
+						1,
+						preview.quad.tx,
+						preview.quad.ty,
+					);
+				}
 				return;
 			}
 
+			if (!this.texture && !this.useTiles) return;
+
 			this.updateAnimation();
 
-			gl.clear(gl.COLOR_BUFFER_BIT);
-			gl.useProgram(this.program);
-			gl.uniform2f(
-				this.resolutionLocation,
-				this.canvas.width,
-				this.canvas.height,
-			);
-			gl.uniform1i(this.imageLocation, 0);
+			if (!this.beginFrame()) return;
+
 			gl.uniformMatrix3fv(
 				this.matrixLocation,
 				false,
 				createTransformMatrix(this.transform),
 			);
 
-			if (!this.positionBuffer || !this.texCoordBuffer) return;
-
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-			gl.enableVertexAttribArray(this.texCoordLocation);
-			gl.vertexAttribPointer(this.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-			gl.enableVertexAttribArray(this.positionLocation);
-			gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-			gl.activeTexture(gl.TEXTURE0);
-
 			if (this.useTiles) {
 				for (const tile of this.getVisibleTiles()) {
 					if (!tile.texture) continue;
-					gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-					gl.bufferData(
-						gl.ARRAY_BUFFER,
-						new Float32Array([
-							tile.x,
-							tile.y,
-							tile.x + tile.width,
-							tile.y,
-							tile.x,
-							tile.y + tile.height,
-							tile.x,
-							tile.y + tile.height,
-							tile.x + tile.width,
-							tile.y,
-							tile.x + tile.width,
-							tile.y + tile.height,
-						]),
-						gl.DYNAMIC_DRAW,
-					);
-					gl.bindTexture(gl.TEXTURE_2D, tile.texture);
-					gl.drawArrays(gl.TRIANGLES, 0, 6);
+					this.drawTileQuad(tile);
 				}
 			} else if (this.texture) {
 				gl.bindTexture(gl.TEXTURE_2D, this.texture);
 				gl.drawArrays(gl.TRIANGLES, 0, 6);
+			}
+		} catch (error) {
+			console.error("WebGL viewer render error:", error);
+		}
+	}
+
+	/** 帧公共设置：清屏、着色器与属性绑定。返回 false 表示无法绘制 */
+	private beginFrame(): boolean {
+		const { gl } = this;
+		if (!this.program || !this.positionBuffer || !this.texCoordBuffer) {
+			return false;
+		}
+		gl.clear(gl.COLOR_BUFFER_BIT);
+		gl.useProgram(this.program);
+		gl.uniform2f(
+			this.resolutionLocation,
+			this.canvas.width,
+			this.canvas.height,
+		);
+		gl.uniform1i(this.imageLocation, 0);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
+		gl.enableVertexAttribArray(this.texCoordLocation);
+		gl.vertexAttribPointer(this.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+		gl.enableVertexAttribArray(this.positionLocation);
+		gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
+		gl.activeTexture(gl.TEXTURE0);
+		return true;
+	}
+
+	/** 以 scale/平移绘制一张满幅纹理（quad 定义纹理尺寸） */
+	private drawQuad(
+		texture: WebGLTexture,
+		quad: { w: number; h: number },
+		scale: number,
+		translateX: number,
+		translateY: number,
+	): void {
+		const { gl } = this;
+		if (!this.positionBuffer) return;
+		gl.uniformMatrix3fv(
+			this.matrixLocation,
+			false,
+			createTransformMatrix({ scale, translateX, translateY }),
+		);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+		gl.bufferData(
+			gl.ARRAY_BUFFER,
+			new Float32Array([
+				0,
+				0,
+				quad.w,
+				0,
+				0,
+				quad.h,
+				0,
+				quad.h,
+				quad.w,
+				0,
+				quad.w,
+				quad.h,
+			]),
+			gl.DYNAMIC_DRAW,
+		);
+		gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.drawArrays(gl.TRIANGLES, 0, 6);
+	}
+
+	/** 绘制单个瓦片四边形（position attrib 由调用方启用） */
+	private drawTileQuad(tile: Tile): void {
+		const { gl } = this;
+		if (!this.positionBuffer) return;
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+		gl.bufferData(
+			gl.ARRAY_BUFFER,
+			new Float32Array([
+				tile.x,
+				tile.y,
+				tile.x + tile.width,
+				tile.y,
+				tile.x,
+				tile.y + tile.height,
+				tile.x,
+				tile.y + tile.height,
+				tile.x + tile.width,
+				tile.y,
+				tile.x + tile.width,
+				tile.y + tile.height,
+			]),
+			gl.DYNAMIC_DRAW,
+		);
+		gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
+		gl.bindTexture(gl.TEXTURE_2D, tile.texture);
+		gl.drawArrays(gl.TRIANGLES, 0, 6);
+	}
+
+	/** 翻页拖拽渲染：当前图与邻图并排，整体随手指位移 */
+	private renderPagerFrame(): void {
+		const pager = this.pager;
+		if (!pager) return;
+		const { gl } = this;
+		try {
+			if (gl.isContextLost()) return;
+			if (!this.beginFrame()) return;
+
+			// 当前图：全分辨率纹理；加载期间用缩略图预览
+			if (this.loaded) {
+				if (this.useTiles) {
+					gl.uniformMatrix3fv(
+						this.matrixLocation,
+						false,
+						createTransformMatrix({
+							scale: this.transform.scale,
+							translateX: this.transform.translateX + pager.dx,
+							translateY: this.transform.translateY,
+						}),
+					);
+					for (const tile of this.tiles) {
+						if (!tile.texture) continue;
+						this.drawTileQuad(tile);
+					}
+				} else if (this.texture && this.image) {
+					const dims = this.getSourceDimensions(this.image);
+					if (dims) {
+						this.drawQuad(
+							this.texture,
+							{ w: dims.width, h: dims.height },
+							this.transform.scale,
+							this.transform.translateX + pager.dx,
+							this.transform.translateY,
+						);
+					}
+				}
+			} else if (this.preview) {
+				this.drawQuad(
+					this.preview.texture,
+					this.preview.quad,
+					1,
+					this.preview.quad.tx + pager.dx,
+					this.preview.quad.ty,
+				);
+			}
+
+			// 邻图：一屏宽之外，随手指同步位移
+			const asset = pager.src ? this.readyNeighbors.get(pager.src) : null;
+			if (asset) {
+				this.drawQuad(
+					asset.texture,
+					asset.quad,
+					1,
+					asset.quad.tx +
+						pager.direction * this.canvas.width +
+						pager.dx,
+					asset.quad.ty,
+				);
 			}
 		} catch (error) {
 			console.error("WebGL viewer render error:", error);
@@ -1058,17 +1473,29 @@ export class WebGLImageViewerEngine {
 
 	private onTouchStart = (event: TouchEvent): void => {
 		event.preventDefault();
+		if (this.pager?.animating) {
+			// 吸附动画中新的触摸：立即结算到目标页，本次触摸作为新手势
+			this.finishPagerAnimation();
+		}
+		if (this.pager) return;
 
 		if (event.touches.length === 1) {
 			this.hasMoved = false;
 			this.isDragging = true;
 			const touch = event.touches[0];
-			if (touch) this.lastMousePos = { x: touch.clientX, y: touch.clientY };
+			if (touch) {
+				this.lastMousePos = { x: touch.clientX, y: touch.clientY };
+				// 手势序列起点：仅在尚未记录时设置（抬指后清空）
+				if (!this.touchGestureStart) {
+					this.touchGestureStart = { x: touch.clientX, y: touch.clientY };
+				}
+			}
 		} else if (event.touches.length === 2) {
 			const [a, b] = [event.touches[0], event.touches[1]];
 			if (!a || !b) return;
 			this.isDragging = false;
 			this.lastMousePos = null;
+			this.touchGesturePinched = true;
 			this.touchState = {
 				lastDistance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
 			};
@@ -1086,6 +1513,24 @@ export class WebGLImageViewerEngine {
 			const deltaY = (touch.clientY - this.lastMousePos.y) * dpr;
 			if (Math.abs(deltaX) > 5 * dpr || Math.abs(deltaY) > 5 * dpr) {
 				this.hasMoved = true;
+			}
+			// 未放大时横向拖动进入翻页跟手模式（无 Worker 时退回滑动切换）
+			if (
+				!this.pager &&
+				this.worker &&
+				this.touchGestureStart &&
+				this.getRelativeScale() <= 1.02
+			) {
+				const totalDx = touch.clientX - this.touchGestureStart.x;
+				const totalDy = touch.clientY - this.touchGestureStart.y;
+				if (Math.abs(totalDx) > 8 && Math.abs(totalDx) > Math.abs(totalDy)) {
+					this.startPager(totalDx > 0 ? -1 : 1);
+				}
+			}
+			if (this.pager) {
+				this.updatePager(touch);
+				event.preventDefault();
+				return;
 			}
 			this.transform.translateX += deltaX;
 			this.transform.translateY += deltaY;
@@ -1114,7 +1559,10 @@ export class WebGLImageViewerEngine {
 	private onTouchEnd = (event: TouchEvent): void => {
 		const now = Date.now();
 
-		if (event.touches.length === 0 && this.lastMousePos && !this.hasMoved) {
+		if (this.pager && event.touches.length === 0) {
+			// 翻页拖拽结束：按距离/速度吸附到提交或回弹
+			this.resolvePager();
+		} else if (event.touches.length === 0 && this.lastMousePos && !this.hasMoved) {
 			const position = this.lastMousePos;
 			if (
 				this.lastTouchTime > 0 &&
@@ -1142,15 +1590,298 @@ export class WebGLImageViewerEngine {
 				this.lastTouchPosition = position;
 			}
 		} else {
+			// 移动或多指结束：复位双击检测
 			this.lastTouchTime = 0;
 			this.lastTouchPosition = null;
+			if (
+				event.touches.length === 0 &&
+				this.hasMoved &&
+				!this.touchGesturePinched &&
+				!this.pager
+			) {
+				this.detectSwipe();
+			}
 		}
 
 		this.isDragging = false;
 		this.lastMousePos = null;
 		this.touchState = null;
 		this.hasMoved = false;
+		if (event.touches.length === 0) {
+			this.touchGestureStart = null;
+			this.touchGesturePinched = false;
+		}
 	};
+
+	/**
+	 * 未放大（图片适配视口）时的单指横向滑动切换。
+	 * 放大状态下单指拖拽用于平移，不触发切换；手势中出现双指缩放同样跳过。
+	 */
+	private detectSwipe(): void {
+		const start = this.touchGestureStart;
+		const end = this.lastMousePos;
+		if (!start || !end) return;
+		if (this.getRelativeScale() > 1.02) return;
+
+		const dx = end.x - start.x;
+		const dy = end.y - start.y;
+		if (
+			Math.abs(dx) < RENDER_CONFIG.SWIPE_DISTANCE_PX ||
+			Math.abs(dx) <= Math.abs(dy) * RENDER_CONFIG.SWIPE_AXIS_RATIO
+		) {
+			return;
+		}
+		this.callbacks.onSwipe?.(dx < 0 ? "left" : "right");
+	}
+
+	// ------------------------------------------------------------ 翻页拖拽（跟手）
+
+	/** 激活翻页拖拽：邻图纹理已预热，通常立即可用 */
+	private startPager(direction: 1 | -1): void {
+		if (!this.worker) return;
+		const src =
+			direction === 1 ? this.neighborSrcs.next : this.neighborSrcs.prev;
+		this.pager = {
+			direction: src ? direction : 0,
+			dx: 0,
+			src,
+			requestId: ++this.pagerRequestCounter,
+			animating: false,
+			target: 0,
+			history: [],
+		};
+		if (src && !this.readyNeighbors.has(src)) {
+			this.requestNeighborDecode(src);
+		}
+	}
+
+	/** 图片跟手：当前图与邻图并排，位移 = 手指位移（端点处阻尼） */
+	private updatePager(touch: Touch): void {
+		const pager = this.pager;
+		if (!pager || !this.touchGestureStart) return;
+		const dpr = window.devicePixelRatio || 1;
+		let dx = (touch.clientX - this.touchGestureStart.x) * dpr;
+		if (pager.direction === 0) dx *= 0.35;
+		pager.dx = dx;
+		pager.history.push({ dx, t: Date.now() });
+		if (pager.history.length > 8) pager.history.shift();
+		this.render();
+	}
+
+	/**
+	 * 松手结算：按手势提交（位移超屏宽 20%，或最近 100ms 采样窗口内的轻扫速度），
+	 * 否则回弹。邻图纹理未就绪（快速轻扫早于解码完成）也允许提交——
+	 * 宿主会走普通切换路径补加载。
+	 */
+	private resolvePager(): void {
+		const pager = this.pager;
+		if (!pager) return;
+		let target = 0;
+		if (pager.direction !== 0) {
+			const width = this.canvas.width;
+			const velocity = this.flickVelocity(pager);
+			const distanceOk = Math.abs(pager.dx) > width * 0.2;
+			const flick =
+				Math.abs(velocity) > 0.5 * (window.devicePixelRatio || 1) &&
+				Math.sign(velocity) === -pager.direction;
+			target = distanceOk || flick ? -pager.direction * width : 0;
+		}
+		this.animatePagerTo(target, {
+			duration: 300,
+			easing: easeOutQuart,
+		});
+	}
+
+	/** 最近 ~100ms 采样窗口内的平均速度（设备 px/ms），抗抬指前末段减速的噪声 */
+	private flickVelocity(pager: PagerState): number {
+		const history = pager.history;
+		if (history.length < 2) return 0;
+		const last = history[history.length - 1];
+		let ref = history[0];
+		for (const sample of history) {
+			if (last.t - sample.t <= 100) {
+				ref = sample;
+				break;
+			}
+		}
+		return (last.dx - ref.dx) / Math.max(1, last.t - ref.t);
+	}
+
+	private animatePagerTo(
+		target: number,
+		options: { duration: number; easing: (t: number) => number },
+	): void {
+		const pager = this.pager;
+		if (!pager) return;
+		pager.animating = true;
+		pager.target = target;
+		const startDx = pager.dx;
+		const startTime = Date.now();
+		// reduced-motion 时立即到位
+		const duration =
+			this.config.animationTime === 0 ? 0 : options.duration;
+		if (duration <= 0) {
+			pager.dx = target;
+			pager.animating = false;
+			this.settlePager();
+			return;
+		}
+		const step = () => {
+			if (this.pager !== pager || !pager.animating) return;
+			const t = Math.min((Date.now() - startTime) / duration, 1);
+			pager.dx = startDx + (target - startDx) * options.easing(t);
+			this.render();
+			if (t < 1) {
+				this.pagerRafId = requestAnimationFrame(step);
+				return;
+			}
+			this.pagerRafId = null;
+			pager.animating = false;
+			this.settlePager();
+		};
+		step();
+	}
+
+	/** 吸附动画期间被新触摸打断：立即结算到目标状态 */
+	private finishPagerAnimation(): void {
+		const pager = this.pager;
+		if (!pager) return;
+		if (this.pagerRafId !== null) {
+			cancelAnimationFrame(this.pagerRafId);
+			this.pagerRafId = null;
+		}
+		pager.animating = false;
+		pager.dx = pager.target;
+		this.settlePager();
+	}
+
+	private cancelPager(): void {
+		if (this.pagerRafId !== null) {
+			cancelAnimationFrame(this.pagerRafId);
+			this.pagerRafId = null;
+		}
+		this.pager = null;
+	}
+
+	/** 提交换页：邻图纹理升级为当前画面，通知宿主更新索引并补元数据 */
+	private settlePager(): void {
+		const pager = this.pager;
+		if (!pager) return;
+		if (pager.target !== 0) {
+			const asset = pager.src ? this.readyNeighbors.get(pager.src) : null;
+			if (asset) {
+				// 邻图已就绪：无缝升级为当前画面
+				this.commitPager();
+				return;
+			}
+			// 邻图纹理未就绪（预热尚未完成）：按普通切换处理（宿主补加载）
+			const direction = pager.direction;
+			this.pager = null;
+			if (direction !== 0) {
+				this.callbacks.onPageChange?.(direction === 1 ? 1 : -1, false);
+			}
+			return;
+		}
+		this.pager = null;
+		this.render();
+	}
+
+	private commitPager(): void {
+		const pager = this.pager;
+		if (!pager || !pager.src) return;
+		const direction = pager.direction;
+		const incoming = this.readyNeighbors.get(pager.src);
+
+		// 让位的当前画面留作反方向资产：紧接着回滑也有画面，消除黑屏窗口
+		// （仅限非瓦片路径的整幅纹理；瓦片图交给缩略图/解码兜底）
+		const outgoingSrc =
+			direction === 1 ? this.neighborSrcs.prev : this.neighborSrcs.next;
+		let keptOutgoing = false;
+		if (this.texture && this.image && !this.useTiles && outgoingSrc) {
+			const dims = this.getSourceDimensions(this.image);
+			const scale = this.transform.scale;
+			if (dims && scale > 0) {
+				const quadW = Math.round(dims.width * scale);
+				const quadH = Math.round(dims.height * scale);
+				const previous = this.readyNeighbors.get(outgoingSrc);
+				if (previous) this.gl.deleteTexture(previous.texture);
+				this.readyNeighbors.set(outgoingSrc, {
+					texture: this.texture,
+					quad: {
+						w: quadW,
+						h: quadH,
+						tx: (this.canvas.width - quadW) / 2,
+						ty: (this.canvas.height - quadH) / 2,
+					},
+					source: this.image,
+					crisp: true,
+					meta: { width: dims.width, height: dims.height },
+				});
+				keptOutgoing = true;
+			}
+		}
+
+		if (incoming) {
+			if (this.texture && !keptOutgoing) {
+				this.gl.deleteTexture(this.texture);
+			}
+			this.texture = incoming.texture;
+			this.useTiles = false;
+			this.image = incoming.source;
+			this.loaded = true;
+			this.updatePositionBuffer();
+			this.centerImage();
+			this.readyNeighbors.delete(pager.src);
+		}
+		this.pager = null;
+		// 先换页（宿主重置索引/元数据），再补送邻图元数据
+		this.callbacks.onPageChange?.(direction === 1 ? 1 : -1, Boolean(incoming));
+		if (incoming?.meta) this.callbacks.onMetadata?.(incoming.meta);
+	}
+
+	/** 邻图解码完成：以更清晰的降采样纹理覆盖缩略图预热纹理 */
+	private applyNeighborBitmap(payload: {
+		bitmap: ImageBitmap;
+		requestId: number;
+		exif?: ExifSummary;
+		histogram?: HistogramData;
+		fileSize?: number;
+	}): void {
+		const src = this.neighborRequests.get(payload.requestId);
+		this.neighborRequests.delete(payload.requestId);
+		if (!src) {
+			payload.bitmap.close();
+			return;
+		}
+		// 该 src 已是当前画面（翻页提交后）：解码结果与静默刷新重复，直接丢弃
+		if (this.loaded && this.lastRequestedSrc === src) {
+			payload.bitmap.close();
+			return;
+		}
+		const built = this.uploadFittedTexture(
+			payload.bitmap,
+			payload.bitmap.width,
+			payload.bitmap.height,
+		);
+		payload.bitmap.close();
+		if (!built) return;
+		const existing = this.readyNeighbors.get(src);
+		if (existing) this.gl.deleteTexture(existing.texture);
+		this.readyNeighbors.set(src, {
+			texture: built.texture,
+			quad: built.quad,
+			source: built.resized,
+			meta: {
+				exif: payload.exif,
+				histogram: payload.histogram,
+				fileSize: payload.fileSize,
+				width: payload.bitmap.width,
+				height: payload.bitmap.height,
+			},
+			crisp: true,
+		});
+		this.render();
+	}
 
 	private onContextLost = (event: Event): void => {
 		event.preventDefault();
@@ -1236,6 +1967,12 @@ export class WebGLImageViewerEngine {
 		this.resizeObserver?.disconnect();
 		this.resizeObserver = null;
 
+		this.cancelPager();
+		for (const asset of this.readyNeighbors.values()) {
+			this.gl.deleteTexture(asset.texture);
+		}
+		this.readyNeighbors.clear();
+		this.clearPreview();
 		this.animation = null;
 		this.image = null;
 		this.loaded = false;

@@ -143,7 +143,7 @@ export const vi: Translation = {
 	[Key.imageLoadFailed]: "Không thể tải ảnh",
 	[Key.allPhotos]: "Tất cả ảnh",
 	[Key.viewerInfo]: "Thông tin ảnh",
-	[Key.viewerZoomHint]: "Nhấp đúp hoặc cuộn để thu phóng",
+	[Key.viewerZoomHint]: "Chạm đôi để thu phóng, vuốt ngang để chuyển ảnh",
 	[Key.photoBasicInfo]: "Thông tin cơ bản",
 	[Key.photoCaptureParams]: "Tham số chụp",
 	[Key.photoFilename]: "Tên tệp",

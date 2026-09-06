@@ -140,7 +140,7 @@ export const ja: Translation = {
 	[Key.imageLoadFailed]: "画像の読み込みに失敗しました",
 	[Key.allPhotos]: "すべての写真",
 	[Key.viewerInfo]: "写真情報",
-	[Key.viewerZoomHint]: "ダブルクリックまたはホイールでズーム",
+	[Key.viewerZoomHint]: "ダブルタップでズーム、左右スワイプで切替",
 	[Key.photoBasicInfo]: "基本情報",
 	[Key.photoCaptureParams]: "撮影パラメータ",
 	[Key.photoFilename]: "ファイル名",

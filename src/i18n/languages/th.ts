@@ -132,7 +132,7 @@ export const th: Translation = {
 	[Key.imageLoadFailed]: "โหลดรูปภาพไม่สำเร็จ",
 	[Key.allPhotos]: "รูปภาพทั้งหมด",
 	[Key.viewerInfo]: "ข้อมูลรูปภาพ",
-	[Key.viewerZoomHint]: "ดับเบิลคลิกหรือเลื่อนล้อเพื่อซูม",
+	[Key.viewerZoomHint]: "แตะสองครั้งเพื่อซูม ปัดซ้ายหรือขวาเพื่อเปลี่ยน",
 	[Key.photoBasicInfo]: "ข้อมูลพื้นฐาน",
 	[Key.photoCaptureParams]: "พารามิเตอร์การถ่าย",
 	[Key.photoFilename]: "ชื่อไฟล์",
