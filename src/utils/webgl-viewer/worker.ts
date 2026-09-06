@@ -45,14 +45,18 @@ interface ParsedExif {
 }
 
 /**
- * EXIF 时间无时区语义，exifr（默认 reviveValues）解析为按 UTC 计的 Date，
- * 取 UTC 分量即是相机记录的原始墙上时间，避免被本地时区平移。
+ * EXIF 时间无时区语义，exifr 按运行环境的本地时区把 "YYYY:MM:DD HH:mm:ss"
+ * 解析为 Date，本地时间分量即相机记录的原始墙上时间（与查看者时区无关）。
+ * 因此必须用本地分量格式化——toISOString 会平移到 UTC（东八区早 8 小时）。
  * 拍摄时间优先 DateTimeOriginal，缺失时回退 ModifyDate。
  */
 function exifDateString(value: Date | string | undefined): string | undefined {
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) return undefined;
-		return value.toISOString().slice(0, 16).replace("T", " ");
+		const pad = (n: number) => String(n).padStart(2, "0");
+		return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(
+			value.getDate(),
+		)} ${pad(value.getHours())}:${pad(value.getMinutes())}`;
 	}
 	if (typeof value === "string" && value.trim()) return value.trim();
 	return undefined;
