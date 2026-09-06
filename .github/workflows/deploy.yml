@@ -7,6 +7,11 @@ on:
     types: [content-update] # 响应内容仓库发送的派发事件
   workflow_dispatch:
 
+# 发布到 gh-pages 分支需要 GITHUB_TOKEN 具备写权限；未声明 permissions 时
+# 默认只读，推送会被 403 拒绝（denied to github-actions[bot]）
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
