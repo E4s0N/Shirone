@@ -1,0 +1,37 @@
+# Tangkai's Blog
+
+> A blog about Tangkai
+
+This is the llms.txt file for Tangkai's Blog. It provides a machine-readable directory of published articles and core pages for Large Language Models.
+
+## Core Pages
+- [Home](https://tangkai.me/): Main blog entrance and latest post stream.
+- [About](https://tangkai.me/about/): Author profile, technical stack, and background.
+- [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
+
+## Articles
+- [欢迎使用 Shirone 内容仓库](https://tangkai.me/posts/guide/): 这是一篇示例文章，展示了 Shirone 博客主题的排版样式与元数据配置。
+- [自建share微博客户端激活](https://tangkai.me/posts/share-activate/): 自建share微博客户端激活
+- [整理照片心得](https://tangkai.me/posts/photo-manage-experience/): 使用python脚本整理照片，按照月份分类整理
+- [同步助手_20260906_乌拉地尔的用法用量_链接](https://tangkai.me/posts/2026-09-06-3e8df6be-1931-4b52-8fe5-9f62186985ee/)
+- [同步助手_20260906_卒中进展加重，如何处理？这 5 个方面要重点关注_链接](https://tangkai.me/posts/2026-09-06-e51b2fcd-96c2-46f3-a6af-2ba958a2eb8d/)
+- [同步助手_20260906_发病 > 4.5h，如何识别缺血半暗带？影像如何指导「超窗」_链接](https://tangkai.me/posts/2026-09-06-a34ce3f8-8270-429d-84be-96361821b010/)
+- [治疗颅内感染，哪些抗生素能穿透血脑屏障？5 张表帮你理清](https://tangkai.me/posts/2026-09-01-27af66f3-c9bc-4996-95c0-44da5d354026/): 哪些抗菌药能穿透血脑屏
+- [颅脑CT脑叶分区](https://tangkai.me/posts/2026-08-30-a864f7ec-e1d7-4b91-b636-b6d8888d1044/)
+- [昏迷患者，如何进行神经科查体？](https://tangkai.me/posts/2026-08-29-1cac9d45-4e05-4237-a88f-74b10c4f4f57/): 初入神经科，比较常见情况就是会诊昏迷病人，怎么快速上手显得有专家范呢，小编教你两个口诀，一用一个准。
+- [正常脑血管造影解剖图解【建议收藏！】](https://tangkai.me/posts/2026-08-30-831a29cb-27fa-4c4e-82e1-725913022e59/): 正常脑血管造影解剖图解请把这篇文章转给所有人看到
+- [正常脑血管造影解剖图解【建议收藏！】](https://tangkai.me/posts/2026-09-02-b2f6112b-b9b0-495c-8c47-c69b8bf137e5/): 正常脑血管造影解剖图解请把这篇文章转给所有人看到
+- [脑血管重度狭窄：「阿司匹林 + 氯吡格雷」，双抗到底用多久？](https://tangkai.me/posts/2026-08-30-7e8d0d7f-cc3e-4ba1-9016-34d770f0906d/): 你知道吗
+- [简单粗暴！但实用值拉满——头颅影像解剖结构（标识版）](https://tangkai.me/posts/2026-08-29-dc97be6c-f973-4112-ba35-0698c9e5a164/): 图文来源于网络中央沟：从冠状平面将大脑分成额叶和顶叶的脑沟。半卵圆中心：指脑室上部的脑白质区域（层面上不出现侧脑室）放射冠：指两侧侧脑室周围的脑白质层面。
+- [脑梗死取栓四大经典研究入组标准](https://tangkai.me/posts/2026-08-30-c8a1a9aa-2c83-4122-9aa7-7231d67c5a40/)
+- [给脑梗死患者开「双抗 21 天」，主任却说大错特错？](https://tangkai.me/posts/2026-08-30-49be0939-1f61-4811-8f6d-4668804f6186/): 这篇总结快收好！
+- [丁苯酞、依达拉奉、胞磷胆碱...脑保护药物有何区别？这篇讲清了！](https://tangkai.me/posts/2026-08-29-65e6661c-adb3-4b4e-934b-a4a99b2ed135/): 太实用了
+- [丁苯酞、依达拉奉、胞磷胆碱...脑保护药物有何区别？这篇讲清了！](https://tangkai.me/posts/2026-08-30-da64b197-99d9-4242-a078-27af0b023271/): 太实用了
+- [溶栓前紧急降压，除了乌拉地尔，别忘了还有......](https://tangkai.me/posts/2026-09-02-de26802a-a4eb-486c-92a6-0339e7044120/): 无论白猫黑猫，抓住老鼠就是好猫
+- [前庭神经炎、梅尼埃病…不同眩晕，激素首选是？何时启用？](https://tangkai.me/posts/2026-09-01-755daa48-4d97-42d1-aefb-50ba11e6467f/): 收藏！
+- [轻型卒中症状改善，还要溶栓吗？看完这篇不纠结！](https://tangkai.me/posts/2026-08-30-442c8d3c-b92d-4987-9352-d1e62a3d7b1c/): 答对了吗？
+- [高清颅脑MR解剖彩色标注【全】](https://tangkai.me/posts/2026-08-30-8bf4112b-ecec-4098-807f-d6502b115f76/): 高清颅脑MR解剖彩色标注【全】
+- [耳石症治疗：8种复位手法，让逃跑的“石头”快速归位！（图文+教学视频详解）](https://tangkai.me/posts/2026-09-03-9a98f5b9-98be-4502-855b-4e945c1fbebb/): 耳石症8大复位手法详解（图文+教学视频），快快收藏！
+
+## Full Text Dump
+- [Full Text Archive](https://tangkai.me/llms-full.txt): Complete, concatenated Markdown content of all public articles for full-context ingestion.

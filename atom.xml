@@ -1,0 +1,2107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="zh_CN">
+  <title>Tangkai&apos;s Blog</title>
+  <subtitle>A blog about Tangkai</subtitle>
+  <link href="https://tangkai.me/" rel="alternate" type="text/html"/>
+  <link href="https://tangkai.me/atom.xml" rel="self" type="application/atom+xml"/>
+  <id>https://tangkai.me/</id>
+  <updated>2026-09-06T14:56:46.395Z</updated>
+  <entry>
+    <title>欢迎使用 Shirone 内容仓库</title>
+    <link href="https://tangkai.me/posts/guide/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/guide/</id>
+    <published>2026-08-27T00:00:00.000Z</published>
+    <updated>2026-08-27T00:00:00.000Z</updated>
+    <summary>这是一篇示例文章，展示了 Shirone 博客主题的排版样式与元数据配置。</summary>
+    <content type="html"><![CDATA[<h2>欢迎使用</h2>
+<p>这是一篇在内容分离架构下的示例文章。本篇文章保存在独立的内容仓库中，与主题代码完全解耦。</p>
+<h3>元数据说明</h3>
+<p>文章顶部的 Frontmatter 支持以下字段：</p>
+<ul>
+<li><code>title</code>：文章标题</li>
+<li><code>published</code>：发布日期，格式如 <code>YYYY-MM-DD</code></li>
+<li><code>updated</code>：最后修改日期，可选</li>
+<li><code>description</code>：文章摘要描述</li>
+<li><code>image</code>：文章封面图路径或外部链接</li>
+<li><code>category</code>：文章所属分类</li>
+<li><code>tags</code>：标签列表</li>
+<li><code>pinned</code>：是否置顶</li>
+<li><code>draft</code>：是否为草稿，草稿在生产构建时会被自动过滤</li>
+<li><code>comment</code>：是否开启本篇文章的评论区</li>
+</ul>
+<h3>代码高亮</h3>
+<pre><code>interface SiteIdentity {
+  name: string;
+  repo: string;
+  mode: "external" | "local";
+}
+
+const config: SiteIdentity = {
+  name: "Shirone",
+  repo: "Shirone-Content",
+  mode: "external"
+};
+</code></pre>
+<h3>提示块样式</h3>
+<blockquote>
+<p>这是一个标准的引用与提示区块示例。</p>
+</blockquote>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="使用指南"/>
+  </entry>
+  <entry>
+    <title>自建share微博客户端激活</title>
+    <link href="https://tangkai.me/posts/share-activate/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/share-activate/</id>
+    <published>2025-10-16T00:00:00.000Z</published>
+    <updated>2025-10-16T00:00:00.000Z</updated>
+    <summary>自建share微博客户端激活</summary>
+    <content type="html"><![CDATA[<p>在路由器某个目录下创建一个nginx 的docker compose文件（使用macvlan，分配一个单独的ip 192.168.2.3，这样可以使用默认80和443端口）：</p>
+<pre><code>version: '3.8'
+services:
+  app:
+    image: 'nginx:latest'
+    restart: unless-stopped
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./html:/usr/share/nginx/html
+    networks:
+      macvlan:
+        ipv4_address: 192.168.2.3
+
+networks:
+  macvlan:
+    external: true
+    name: macvlan
+</code></pre>
+<p>在目录下创建nginx.conf</p>
+<pre><code># 全局块
+user nginx;                          # 指定 Nginx 工作进程运行的用户
+worker_processes auto;               # 指定工作进程的数量，auto 表示根据 CPU 核心数自动调整
+error_log /var/log/nginx/error.log;  # 指定错误日志文件的位置
+pid /run/nginx.pid;                  # 指定 Nginx 的 PID 文件位置
+ 
+# events 块
+events {
+    worker_connections 1024;         # 每个工作进程的最大连接数
+    # use epoll;                     # 指定使用的事件驱动模型，epoll 是 Linux 下的高效模型
+}
+ 
+# http 块
+http {
+    include /etc/nginx/mime.types;   # 包含 MIME 类型定义文件
+    default_type application/octet-stream;
+ 
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+ 
+    access_log /var/log/nginx/access.log main;  # 指定访问日志文件的位置和格式
+ 
+    sendfile on;                     # 开启高效文件传输模式
+    tcp_nopush on;                   # 开启 TCP_NOPUSH 选项，减少 TCP 包的数量
+    tcp_nodelay on;                  # 开启 TCP_NODELAY 选项，立即发送数据
+ 
+    keepalive_timeout 65;            # 设置长连接的超时时间
+ 
+    # server 块（虚拟主机配置）
+    server {
+        listen 80;                   # 监听的端口
+        server_name localhost;       # 服务器名称
+ 
+        # location 块（处理特定路径的请求）
+        location / {
+            root /usr/share/nginx/html;  # 网站根目录
+            index index.html index.htm; # 默认索引文件
+        }
+		# 激活配置块
+	    location /activecode/bind {
+	        # 设置响应头，表明返回的是 JSON 数据
+	        add_header Content-Type application/json;
+
+	        # 返回 JSON 数据
+	        return 200 '{
+	            "code": 0,
+	            "data": {
+	                "code": "鸡仔YYDS",
+	                "activated": true,
+	                "orderId": "",
+	                "activeCount": 0,
+	                "timestamp": 32472115200000,
+	                "s_expire": false
+	            }
+	        }';
+	    }
+
+        # 错误页面配置
+        error_page 404 /404.html;
+        location = /404.html {
+            root /usr/share/nginx/html;
+        }
+ 
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root /usr/share/nginx/html;
+        }
+    }
+}
+</code></pre>
+<p>执行<code>docker compose up -d</code>，然后把路由器中的api.yuhengye.com 重定向到 192.168.2.3，即可在手机上输入任意验证码激活成功！</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="使用指南"/>
+  </entry>
+  <entry>
+    <title>整理照片心得</title>
+    <link href="https://tangkai.me/posts/photo-manage-experience/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/photo-manage-experience/</id>
+    <published>2025-09-09T00:00:00.000Z</published>
+    <updated>2025-09-09T00:00:00.000Z</updated>
+    <summary>使用python脚本整理照片，按照月份分类整理</summary>
+    <content type="html"><![CDATA[<h1>一、前言</h1>
+<p>近日在整理以前拍的照片，想做一本相册，中间遇到了许多坑，记录一下。</p>
+<h1>二、找到旧照片原图</h1>
+<p>首先是找到旧的照片，由于换了好几部手机，从红米K20Pro→K30s→小米11 Ultra→小米15，在2021年以前，由于没有整NAS，都是定期手动备份到机械硬盘里面。2021年以后有了NAS以后，就变懒了，都让软件自动上传到NAS上，还有一份小米云同步自动同步。问题恰恰就出在这里，由于以前的手机有的是128g，有的是256g，到后面手机存储空间就不够了，不知怎么，小米把本地手机里面的原图删了，换成了压缩后的图片。就这样，NAS中的原图也被替换成了压缩后的图片。这挺恶心的，近日整理照片的时候才发现原图没了。最后想到的解决办法是从小米云同步上把以前的照片下载下来，这是个大坑，这软件的PC端非常卡，体验非常不好。最后我选择整个相册都下载，只能烧一点小米CDN的流量来泄愤了。</p>
+<h1>三、按照月份分类整理照片</h1>
+<p>其次是按照月份分类整理照片，我的方法是年份-月份-相册名,</p>
+<pre><code>    ├─2021-01
+    │  ├─Camera
+    │  ├─Picture
+    │  ├─ScreenShot
+    │  ├─Video
+    │  └─WeiXin
+    ├─2021-02
+    │  ├─Camera
+    │  ├─Picture
+    │  ├─ScreenShot
+    │  ├─Video
+    │  └─WeiXin
+    ├─2021-03
+	......
+</code></pre>
+<p>图片分别来自手机的<code>/DCIM/Camera</code>、<code>/DCIM/Screenshots</code>、<code>/Pictures/WeiXin</code>目录，让AI帮忙写了一个python脚本：</p>
+<pre><code>import os
+import re
+import time
+import calendar
+import shutil
+import platform
+import subprocess
+from datetime import datetime
+
+def set_file_timestamps(file_path, target_time):
+    """设置文件的创建时间和修改时间"""
+    timestamp = target_time.timestamp()
+  
+    try:
+        if platform.system() == "Windows":
+            # Windows系统使用PowerShell设置时间
+            time_str = target_time.strftime("%Y-%m-%d %H:%M:%S")
+            powershell_cmd = (
+                f'(Get-Item "{file_path}").CreationTime = "{time_str}"; '
+                f'(Get-Item "{file_path}").LastWriteTime = "{time_str}"'
+            )
+            subprocess.run(
+                ["powershell", "-Command", powershell_cmd],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+        elif platform.system() == "Darwin":  # macOS
+            # macOS使用SetFile和utime
+            time_str = target_time.strftime("%Y%m%d%H%M.%S")
+            subprocess.run(
+                ["SetFile", "-d", time_str, "-m", time_str, file_path],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+        else:  # Linux
+            # Linux设置访问时间和修改时间
+            os.utime(file_path, (timestamp, timestamp))
+          
+        return True
+    except Exception as e:
+        print(f"设置文件 {file_path} 时间时出错: {str(e)}")
+        return False
+
+def set_directory_timestamps(dir_path, year, month):
+    """设置月份目录的创建时间和修改时间"""
+    try:
+        # 计算该月第一天和最后一天
+        first_day = datetime(year, month, 1, 0, 0, 0)
+        last_day_date = calendar.monthrange(year, month)[1]
+        last_day = datetime(year, month, last_day_date, 23, 59, 59)
+      
+        if platform.system() == "Windows":
+            # Windows系统使用PowerShell设置时间
+            first_day_str = first_day.strftime("%Y-%m-%d %H:%M:%S")
+            last_day_str = last_day.strftime("%Y-%m-%d %H:%M:%S")
+            powershell_cmd = (
+                f'(Get-Item "{dir_path}").CreationTime = "{first_day_str}"; '
+                f'(Get-Item "{dir_path}").LastWriteTime = "{last_day_str}"'
+            )
+            subprocess.run(
+                ["powershell", "-Command", powershell_cmd],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+        elif platform.system() == "Darwin":  # macOS
+            # macOS使用SetFile和utime
+            first_day_str = first_day.strftime("%Y%m%d%H%M.%S")
+            last_day_str = last_day.strftime("%Y%m%d%H%M.%S")
+            subprocess.run(["SetFile", "-d", first_day_str, dir_path], check=True)
+            os.utime(dir_path, (last_day.timestamp(), last_day.timestamp()))
+        else:  # Linux
+            # Linux通过创建临时目录的方式设置
+            if os.path.exists(dir_path):
+                temp_dir = dir_path + "_temp"
+                os.rename(dir_path, temp_dir)
+                os.makedirs(dir_path)
+              
+                # 设置新目录时间
+                os.utime(dir_path, (first_day.timestamp(), last_day.timestamp()))
+              
+                # 移动内容
+                for item in os.listdir(temp_dir):
+                    shutil.move(os.path.join(temp_dir, item), os.path.join(dir_path, item))
+                os.rmdir(temp_dir)
+            else:
+                os.makedirs(dir_path)
+                os.utime(dir_path, (first_day.timestamp(), last_day.timestamp()))
+              
+        return True
+    except Exception as e:
+        print(f"设置目录 {dir_path} 时间时出错: {str(e)}")
+        return False
+
+def process_images(source_dir):
+    """处理指定目录下的图片文件"""
+    # 支持的图片文件扩展名
+    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic')
+    video_extensions = ('.mp4', '.mov', '.avi', '.mkv')
+  
+    # 匹配mmexport开头的文件名正则表达式（简单形式）
+    mmexport_simple_pattern = re.compile(r'^mmexport(\d+)\.(.+)$')
+  
+    # 匹配mmexport开头的文件名正则表达式（复杂形式，带哈希）
+    mmexport_complex_pattern = re.compile(r'^mmexport[a-f0-9]+_(\d+)\.(.+)$')
+  
+    # 匹配wx_camera_开头的文件名正则表达式
+    wx_camera_pattern = re.compile(r'^wx_camera_(\d+)\.(.+)$')
+  
+    # 匹配Screenshot开头的文件名正则表达式
+    screenshot_pattern = re.compile(r'^Screenshot_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d+)_.*\.(.+)$')
+  
+    # 匹配IMG_日期格式的文件 (如 IMG_20210417_145554.jpg)
+    img_pattern = re.compile(r'^IMG_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
+  
+    # 匹配MVIMG_日期格式的文件 (如 MVIMG_20210505_191758.jpg)
+    mvimg_pattern = re.compile(r'^MVIMG_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
+  
+    # 匹配VID_日期格式的文件 (如 VID_20210801_182018.mp4)
+    vid_pattern = re.compile(r'^VID_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
+  
+    # 遍历目录中的所有文件
+    for filename in os.listdir(source_dir):
+        file_path = os.path.join(source_dir, filename)
+      
+        # 只处理文件，不处理目录
+        if not os.path.isfile(file_path):
+            continue
+          
+        # 检查文件扩展名
+        file_ext = os.path.splitext(filename)[1].lower()
+        is_image = file_ext in image_extensions
+        is_video = file_ext in video_extensions
+      
+        # 只处理图片和视频文件
+        if not (is_image or is_video):
+            continue
+          
+        # 检查文件名是否符合IMG_格式
+        img_match = img_pattern.match(filename)
+        file_type = "img"
+      
+        if not img_match:
+            # 检查是否符合MVIMG_格式
+            mvimg_match = mvimg_pattern.match(filename)
+            file_type = "mvimg"
+          
+        if not img_match and not mvimg_match:
+            # 检查是否符合VID_格式
+            vid_match = vid_pattern.match(filename)
+            file_type = "vid"
+          
+        if not img_match and not mvimg_match and not vid_match:
+            # 检查是否符合mmexport简单格式
+            match = mmexport_simple_pattern.match(filename)
+            file_type = "mmexport_simple"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            # 检查是否符合mmexport复杂格式（带哈希）
+            match = mmexport_complex_pattern.match(filename)
+            file_type = "mmexport_complex"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            # 检查是否符合wx_camera_格式
+            match = wx_camera_pattern.match(filename)
+            file_type = "wx_camera"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            # 检查是否符合Screenshot格式
+            match = screenshot_pattern.match(filename)
+            file_type = "screenshot"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            print(f"跳过非mmexport/wx_camera/screenshot/IMG_/MVIMG_/VID_格式文件: {filename}")
+            continue
+          
+        try:
+            # 根据文件类型处理
+            if file_type == "img":
+                # 从IMG_文件名中提取时间信息
+                year = int(img_match.group(1))
+                month = int(img_match.group(2))
+                day = int(img_match.group(3))
+                hour = int(img_match.group(4)[:2])
+                minute = int(img_match.group(4)[2:4])
+                second = int(img_match.group(4)[4:6])
+                extension = img_match.group(5)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # IMG_文件不需要重命名
+                sub_dir_name = 'Camera'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            elif file_type == "mvimg":
+                # 从MVIMG_文件名中提取时间信息
+                year = int(mvimg_match.group(1))
+                month = int(mvimg_match.group(2))
+                day = int(mvimg_match.group(3))
+                hour = int(mvimg_match.group(4)[:2])
+                minute = int(mvimg_match.group(4)[2:4])
+                second = int(mvimg_match.group(4)[4:6])
+                extension = mvimg_match.group(5)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # MVIMG_文件不需要重命名
+                sub_dir_name = 'Camera'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            elif file_type == "vid":
+                # 从VID_文件名中提取时间信息
+                year = int(vid_match.group(1))
+                month = int(vid_match.group(2))
+                day = int(vid_match.group(3))
+                hour = int(vid_match.group(4)[:2])
+                minute = int(vid_match.group(4)[2:4])
+                second = int(vid_match.group(4)[4:6])
+                extension = vid_match.group(5)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # VID_文件不需要重命名
+                sub_dir_name = 'Video'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            elif file_type == "screenshot":
+                # 从文件名中提取时间信息
+                year = int(match.group(1))
+                month = int(match.group(2))
+                day = int(match.group(3))
+                hour = int(match.group(4))
+                minute = int(match.group(5))
+                second = int(match.group(6))
+                extension = match.group(8)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # Screenshot文件不需要重命名
+                sub_dir_name = 'ScreenShot'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            else:
+                # 处理微信导出的文件
+                # 提取时间戳
+                timestamp = int(match.group(1))
+                extension = match.group(2)
+              
+                # 转换时间戳为datetime对象
+                # 处理毫秒级时间戳
+                if timestamp &gt; 10**12:  # 大于1e12的认为是毫秒级
+                    timestamp = timestamp / 1000
+                img_datetime = datetime.fromtimestamp(timestamp)
+              
+                # 生成新文件名
+                if file_type == "mmexport_simple" or file_type == "mmexport_complex":
+                    new_filename = f"mmexport_{img_datetime.strftime('%Y%m%d_%H%M%S')}.{extension}"
+                    sub_dir_name = 'WeiXin'
+                else:  # wx_camera
+                    new_filename = f"wx_camera_{img_datetime.strftime('%Y%m%d_%H%M%S')}.{extension}"
+                    sub_dir_name = 'WeiXin'
+              
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+                # 重命名文件（如果不是Screenshot类型）
+                new_file_path = os.path.join(source_dir, new_filename)
+                if file_path != new_file_path:
+                    if os.path.exists(new_file_path):
+                        print(f"文件已存在，跳过重命名: {new_filename}")
+                    else:
+                        os.rename(file_path, new_file_path)
+                        print(f"重命名: {filename} -&gt; {new_filename}")
+                        file_path = new_file_path  # 更新文件路径
+          
+            # 设置文件的创建时间和修改时间（如果不是IMG_、MVIMG_或VID_类型）
+            if file_type not in ["img", "mvimg", "vid"]:
+                if set_file_timestamps(file_path, img_datetime):
+                    print(f"已设置文件时间: {new_filename} -&gt; {img_datetime}")
+            else:
+                # 对于IMG_、MVIMG_和VID_文件，仍然设置时间戳
+                if set_file_timestamps(file_path, img_datetime):
+                    print(f"已设置文件时间: {new_filename} -&gt; {img_datetime}")
+          
+            # 创建月份目录
+            month_dir_path = os.path.join(source_dir, month_dir_name, sub_dir_name)
+          
+            # 确保月份目录存在并设置时间
+            if not os.path.exists(month_dir_path):
+                os.makedirs(month_dir_path)
+                print(f"创建月份目录: {month_dir_name}/{sub_dir_name}")
+          
+            # 设置月份目录时间属性
+            set_directory_timestamps(month_dir_path, img_datetime.year, img_datetime.month)
+          
+            # 移动文件到月份目录
+            dest_path = os.path.join(month_dir_path, new_filename)
+            if not os.path.exists(dest_path):
+                shutil.move(file_path, dest_path)
+                print(f"移动文件到: {month_dir_name}/{sub_dir_name}/{new_filename}")
+            else:
+                print(f"目标文件已存在，跳过移动: {month_dir_name}/{sub_dir_name}/{new_filename}")
+              
+        except Exception as e:
+            print(f"处理文件 {filename} 时出错: {str(e)}")
+
+if __name__ == "__main__":
+    import argparse
+  
+    parser = argparse.ArgumentParser(description='处理图片文件，重命名、设置时间并按月份归档')
+    parser.add_argument('directory', help='要处理的图片所在目录')
+    args = parser.parse_args()
+  
+    # 验证目录是否存在
+    if not os.path.isdir(args.directory):
+        print(f"错误: 目录 '{args.directory}' 不存在或不是一个有效的目录")
+    else:
+        print(f"开始处理目录: {args.directory}")
+        process_images(args.directory)
+        print("处理完成")
+</code></pre>
+<h3>1. 脚本概述</h3>
+<p>这是一个用于整理和归档图片及视频文件的Python脚本，主要功能包括文件重命名、时间戳设置和按月份分类归档。</p>
+<h3>2. 核心功能</h3>
+<h4>文件处理能力</h4>
+<ul>
+<li>
+<p><strong>支持格式</strong>：处理多种图片格式（.jpg, .jpeg, .png, .gif, .bmp, .webp, .heic）和视频格式（.mp4, .mov, .avi, .mkv）</p>
+</li>
+<li>
+<p><strong>文件类型识别</strong>：能够识别并处理以下命名格式的文件：</p>
+<ul>
+<li>微信导出文件（mmexport开头）</li>
+<li>微信相机文件（wx_camera_开头）</li>
+<li>截图文件（Screenshot_开头）</li>
+<li>相机照片（IMG_、MVIMG_开头）</li>
+<li>视频文件（VID_开头）</li>
+</ul>
+</li>
+</ul>
+<h4>文件重命名</h4>
+<ul>
+<li>对微信导出的文件进行标准化重命名，格式为：<code>mmexport_YYYYMMDD_HHMMSS.ext</code> 或 <code>wx_camera_YYYYMMDD_HHMMSS.ext</code></li>
+<li>其他格式文件保持原文件名不变</li>
+</ul>
+<h4>时间戳管理</h4>
+<ul>
+<li><strong>精确时间设置</strong>：根据文件名中的时间信息设置文件的创建时间和修改时间</li>
+<li><strong>跨平台支持</strong>：针对Windows、macOS和Linux系统采用不同的时间设置方法</li>
+<li><strong>目录时间设置</strong>：为创建的月份目录设置合理的起止时间</li>
+</ul>
+<h4>文件归档组织</h4>
+<ul>
+<li>
+<p>按年月创建目录结构（如：2023-05）</p>
+</li>
+<li>
+<p>根据文件类型分类存储：</p>
+<ul>
+<li>Camera：相机拍摄的照片</li>
+<li>Video：视频文件</li>
+<li>ScreenShot：截图文件</li>
+<li>WeiXin：微信相关文件</li>
+</ul>
+</li>
+</ul>
+<h3>3. 技术特点</h3>
+<h4>智能解析</h4>
+<ul>
+<li>能够解析多种时间格式，包括时间戳和日期字符串</li>
+<li>自动处理毫秒级时间戳转换</li>
+</ul>
+<h4>跨平台兼容</h4>
+<ul>
+<li>针对不同操作系统（Windows、macOS、Linux）采用相应的文件操作方法</li>
+<li>使用PowerShell（Windows）、SetFile（macOS）和utime（Linux）等系统工具</li>
+</ul>
+<h4>安全机制</h4>
+<ul>
+<li>检查文件是否已存在，避免重复操作</li>
+<li>异常处理机制，确保单个文件处理失败不影响整体流程</li>
+</ul>
+<h3>4. 使用场景</h3>
+<p>该脚本特别适用于：</p>
+<ul>
+<li>整理手机导出的照片和视频文件</li>
+<li>规范化管理大量杂乱的媒体文件</li>
+<li>按时间顺序归档个人照片和视频资料</li>
+<li>恢复文件的正确创建时间信息</li>
+</ul>
+<h3>5. 使用方法</h3>
+<p>通过命令行参数指定需要处理的目录：</p>
+<pre><code>python 整理图片.py [目录路径]
+</code></pre>
+<h1>四、为打印的照片添加水印</h1>
+<p>由于想把每一年的照片精选100张出来，修一修打印出来装订成册，所以想把需要打印的照片添加一些水印，包括时间、地点、设备、参数等。</p>
+<p>了解了一下打印的尺寸，主要有：</p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01733a1ede.webp" alt="image" /></p>
+<p>手机拍摄的照片比例一般是4:3，如果选择大6寸打印是刚刚好的，但是如果在下方加了一条水印，打印出来长边就会有白边，</p>
+<p>为了解决这个问题，我首先把照片裁切成3:2的比例，然后使用这个在线logo添加工具：<a href="https://milai.drtk.cn/logo/milai-frame">milai.drtk.cn/logo/milai-frame</a></p>
+<p>该工具的原链接为<a href="https://xxbiji.github.io/logo/milai-frame">xxbiji.github.io/logo/milai-frame</a>,GitHub地址为：<a href="https://github.com/xxbiji/logo">https://github.com/xxbiji/logo</a></p>
+<p>部分参数设置如下，最主要还是<strong>边框大小设置成60</strong>。logo调为自动，左上角文字可以使用模板中的<code>{dateTime}</code>，左下角文字为：<code>photo by XXX with {make} {model}</code>，右上角文字为<code>省份 | 城市 | 地点·详细地址</code>，右下角文字为：<code>{focalLength}mm f/{F} {S} ISO{ISO}</code></p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c019809f1e7.webp" alt="20250909201140.webp" /></p>
+<p>最终的成品照片接近4:3比例，一下为部分样图：</p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01033d9312.webp" alt="2025-09-09_13-31-52" /></p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01aeb7f048.webp" alt="2025-09-09_13-42-11" /></p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01c01991fb.webp" alt="2025-09-09_13-43-49.webp" /></p>
+<p>最后就是去淘宝打印了，其实本来是想买个打印机的，看中小米的照片打印机1s，但是看网上说很容易吃灰，而且打印机+耗材套装就750，耗材100块80张，感觉没有淘宝打印划算。</p>
+<p>先在淘宝上打印试试看吧，期待好结果。</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="使用指南"/>
+  </entry>
+  <entry>
+    <title>同步助手_20260906_乌拉地尔的用法用量_链接</title>
+    <link href="https://tangkai.me/posts/2026-09-06-3e8df6be-1931-4b52-8fe5-9f62186985ee/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-06-3e8df6be-1931-4b52-8fe5-9f62186985ee/</id>
+    <published>2026-09-06T14:56:46.395Z</published>
+    <updated>2026-09-06T14:56:46.395Z</updated>
+    <summary></summary>
+    <content type="html"><![CDATA[<p><img src="./pic/image-4dfec09ae7335711.jpg" alt="" /></p>
+<p><strong>常规用药</strong></p>
+<p><strong>乌拉地尔具有阻断突触后 α1 受体和外周 α2 受体作用。</strong></p>
+<p>适用于：高血压、良性前列腺增生引起的排尿困难、神经源性膀胱相关的排尿困难。</p>
+<h2><strong>（一）高血压</strong></h2>
+<p>成人常用剂量乌拉地尔口服制剂（缓释片剂、胶囊和缓释胶囊）可用于治疗原发性高血压、肾性高血压、由嗜铬细胞瘤所引发的高血压，具体用法剂量如下：</p>
+<ul>
+<li>通常从 30 mg/d 开始，当效果不明显时，可在 1～2 周的时间内逐渐增加剂量至 60 mg/d 或 120 mg/d，分两次口服，并可根据年龄、症状等适当增减。</li>
+</ul>
+<p>乌拉地尔注射剂可用于高血压危象（如血压急剧升高）、重度和极重度高血压、难治性高血压，具体用法剂量如下：</p>
+<ul>
+<li>
+<p>静脉注射：缓慢静注 10～50 mg 乌拉地尔，监测血压变化，降压效果通常在 5 分钟内显示。若效果不够满意，可重复用药。</p>
+</li>
+<li>
+<p>本品在静脉注射后，为了维持其降压效果，可持续静脉点滴。</p>
+</li>
+<li>
+<p>持续静脉点滴或使用输液泵：通常将 250 mg 乌拉地尔加入到静脉输液中，如生理盐水、5% 或 10% 的葡萄糖。如果使用输液泵，可将 100 mg 乌拉地尔注入到输液泵中，再将上述液体稀释到 50 mL。</p>
+</li>
+<li>
+<p>静脉输液的最大药物浓度为 4 mg/mL 乌拉地尔。</p>
+</li>
+<li>
+<p>输入速度根据病人的血压酌情调整，初始输入速度可达 2 mg/min，维持给药的速度为 9 mg/h。若将 250 mg 乌拉地尔溶解在 500 mL 液体中，则 1 mg 乌拉地尔相当于 44 滴或 2.2 mL 输入液。</p>
+</li>
+</ul>
+<p>乌拉地尔注射剂可用于控制围手术期高血压，具体用法剂量如下：</p>
+<ul>
+<li>
+<p>先予 25 mg 乌拉地尔注射液静脉注射，监测血压变化，2 分钟后，若血压下降，则静脉点滴维持血压，若血压无变化，则重复用药；再监测血压变化，2 分钟后，若血压下降，则静脉点滴维持血压，若血压无变化，再缓慢静脉内注射 50 mg 乌拉地尔；继续监测血压变化，2 分钟后，若血压下降，则静脉点滴维持血压。在最初 1～2 分钟内剂量可达 6 mg，然后减量。</p>
+</li>
+<li>
+<p>血压下降的程度由前 15 分钟内输入的药物剂量决定，然后用低剂量维持。</p>
+</li>
+<li>
+<p>从毒理学方面考虑，疗程一般不超过 7 天</p>
+</li>
+</ul>
+<h2><strong>（二）良性前列腺增生引起的排尿困难</strong></h2>
+<p>成人常用剂量</p>
+<p>乌拉地尔用于良性前列腺增生引起的排尿困难，常用剂型为胶囊剂，具体用量用法如下：</p>
+<ul>
+<li>通常起始剂量为 30 mg/d，如果效果不明显，可在 1～2 周的间隔下逐渐增加到 60～90 mg/d，并分为一日 2 次经口给药。另外，根据年龄和症状，可适当的增减给药量，但一天的最高给药量为 90 mg。</li>
+</ul>
+<h2><strong>（三）与神经源性膀胱相关的排尿困难</strong></h2>
+<p>成人常用剂量</p>
+<p>乌拉地尔用于与神经源性膀胱相关神经因性膀胱的排尿困难，具体用量用法如下：</p>
+<ul>
+<li>通常起始剂量为 30 mg/d（一次 15 mg，一天 2 次），间隔 1～2 周逐渐增加至 60 mg/d，分为一日 2 次早晚饭后口服。另外，根据症状适当增减，每日最高给药量不超过 90 mg。</li>
+</ul>
+<p><strong>剂量调整</strong></p>
+<h2><strong>（一）肝功能不全者剂量调整</strong></h2>
+<ul>
+<li>肝功能不全患者使用本品很容易发生不良反应。据报道，肝硬化患者对本品的代谢和排泄延迟。</li>
+</ul>
+<h2><strong>（二）老年患者剂量调整</strong></h2>
+<ul>
+<li>
+<p>应在监测老年患者病情的同时谨慎给药，例如从小剂量开始。</p>
+</li>
+<li>
+<p>对于老年患者，过大的压降通常被认为是不合需要的，可能会发生脑梗塞等。</p>
+</li>
+<li>
+<p>如果老年患者肝功能受损，起始剂量需降低（例如每天 15 mg）。据报道，肝功能严重受损（肝硬化）的老年患者会出现代谢和排泄延迟。</p>
+</li>
+</ul>
+<p><strong>禁忌证</strong></p>
+<p>1、已知对乌拉地尔或任何成分过敏患者禁用。</p>
+<p>2、主动脉峡部狭窄或动静脉分流术（不包括用于血液透析的动静脉分流术）患者禁用。</p>
+<p><strong>注意事项</strong></p>
+<p><strong>一般注意事项</strong></p>
+<p>1、由于抗高血压治疗的累加作用，建议在考虑其半衰期的情况下进行给药，以避免血压下降过快而导致心动过缓或心脏骤停。</p>
+<p>2、由于老年受试者对此类治疗的敏感性经常变化，因此老年人应谨慎使用抗高血压治疗并以较低剂量开始用药。</p>
+<p>3、在血容量不足（腹泻、呕吐）的情况下，存在乌拉地尔的抗高血压作用增加的风险。</p>
+<p>4、对于肾功能不全的患者，可能需要监测血流动力学变化。</p>
+<p>5、鉴于以口服形式进行的研究，最好减少严重肝功能损害患者的剂量。</p>
+<p>6、儿童可以服用乌拉地尔。</p>
+<p>7、由于存在丙二醇，乌拉地尔可能会引起类似酒精的症状。</p>
+<p>8、乌拉地尔不应用于与中风相关的高血压的紧急治疗。医生将决定在某些器官受损可能危及生命的情况下使用该药。</p>
+<p>9、血液中的钠含量降低不应使用乌拉地尔。</p>
+<p><strong>警告</strong></p>
+<p>1、妊娠期高血压：由于乌拉地尔对胎儿有风险，尤其可能会造成胎儿死亡，因此降压应循序渐进并血压应始终得到控制。</p>
+<p>2、经常伴随中风的高血压激增并不是紧急抗高血压治疗的指征。应根据是否存在短期危及生命的内脏并发症来决定是否用药。</p>
+<p>首发：丁香园心血管时间</p>
+<p>内容来源：乌拉地尔合理用药. 用药助手APP.</p>
+<p><img src="./pic/image-7630f5e920eb4889.png" alt="" /></p>
+]]></content>
+    <author><name>Shirone</name></author>
+  </entry>
+  <entry>
+    <title>同步助手_20260906_卒中进展加重，如何处理？这 5 个方面要重点关注_链接</title>
+    <link href="https://tangkai.me/posts/2026-09-06-e51b2fcd-96c2-46f3-a6af-2ba958a2eb8d/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-06-e51b2fcd-96c2-46f3-a6af-2ba958a2eb8d/</id>
+    <published>2026-09-06T14:56:06.864Z</published>
+    <updated>2026-09-06T14:56:06.864Z</updated>
+    <summary></summary>
+    <content type="html"><![CDATA[<p><a href="https://mp.weixin.qq.com/s?__biz=Mzg4NjkzMzM1Nw==&amp;mid=2247595419&amp;idx=1&amp;sn=fc4ae1f0980c5b5786434953771713b0&amp;chksm=ce721705662d4875227f654680939a8131f038199d0532d8f2deb8093633cb3d1249c4aaae42&amp;mpshare=1&amp;scene=1&amp;srcid=0906Wx6ZTXUQgvVoWepUYdb0&amp;sharer_shareinfo=6186c828a31814da556a3fedf879cb59&amp;sharer_shareinfo_first=6186c828a31814da556a3fedf879cb59#rd">卒中进展加重，如何处理？这 5 个方面要重点关注</a></p>
+<p><strong>描述</strong>: 你会如何治疗？</p>
+<p><img src="./pic/image-674ec12f79bd5c8d.png" alt="缩略图" /></p>
+]]></content>
+    <author><name>Shirone</name></author>
+  </entry>
+  <entry>
+    <title>同步助手_20260906_发病 &gt; 4.5h，如何识别缺血半暗带？影像如何指导「超窗」_链接</title>
+    <link href="https://tangkai.me/posts/2026-09-06-a34ce3f8-8270-429d-84be-96361821b010/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-06-a34ce3f8-8270-429d-84be-96361821b010/</id>
+    <published>2026-09-06T11:10:53.356Z</published>
+    <updated>2026-09-06T11:10:53.356Z</updated>
+    <summary></summary>
+    <content type="html"><![CDATA[<p><a href="https://mp.weixin.qq.com/s?__biz=Mzg4NjkzMzM1Nw==&amp;mid=2247593789&amp;idx=1&amp;sn=846d1525a693db1428a7711e10c24e56&amp;chksm=ce37e0bd32f7914b096f133aa3a36cba6230db2ec51ed4e87538d55c1396b3f7133a8edb95ae&amp;mpshare=1&amp;scene=1&amp;srcid=09064ZHncxPnFRcyLlowE7o8&amp;sharer_shareinfo=bddb81771d9963b02fe69958d8636d4b&amp;sharer_shareinfo_first=bddb81771d9963b02fe69958d8636d4b#rd">发病 &gt; 4.5h，如何识别缺血半暗带？影像如何指导「超窗」溶栓？</a></p>
+<p><strong>描述</strong>: 急性缺血性卒中组织学决策的影像学入门</p>
+<p><img src="./pic/image-e9ce5d57ce225659.png" alt="缩略图" /></p>
+]]></content>
+    <author><name>Shirone</name></author>
+  </entry>
+  <entry>
+    <title>治疗颅内感染，哪些抗生素能穿透血脑屏障？5 张表帮你理清</title>
+    <link href="https://tangkai.me/posts/2026-09-01-27af66f3-c9bc-4996-95c0-44da5d354026/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-01-27af66f3-c9bc-4996-95c0-44da5d354026/</id>
+    <published>2026-08-16T20:00:00.000Z</published>
+    <updated>2026-08-16T20:00:00.000Z</updated>
+    <summary>哪些抗菌药能穿透血脑屏</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：Wenyu
+发布时间：2026-08-16 20:00</p>
+<p><img src="./pic/image-9bd2e37103e4cc26.png" alt="" /></p>
+<p>颅内感染（中枢神经系统感染）是神经内、外科常见急危重症，尤其是细菌性感染，具有起病急、进展快、病死率与致残率高的特点，抗菌药的应用是治疗神经系统细菌性感染的重要措施之一。</p>
+<p>血脑屏障是由脑内的血管内皮细胞通过各种连接蛋白彼此紧密相连，并与周细胞和星形胶质细胞相互作用形成的特殊的细胞屏障系统，用于保证大脑的能量供给和微环境的稳定 [1]。由于血脑屏障的存在，部分抗菌药难以有效通过血脑屏障进入中枢神经系统达到有效抗菌浓度，从而影响治疗效果。选择抗菌药物时，应该考虑到药物通过血脑屏障的能力。哪些抗菌药能穿透血脑屏障？</p>
+<h2>常用抗菌药物的血脑屏障穿透性分类</h2>
+<p>可以透过血脑屏障的抗菌药物主要包括第三、四代头孢菌素（如头孢曲松、头孢噻肟、头孢他啶、头孢吡肟）、碳青霉烯类（如美罗培南）、喹诺酮类、糖肽类（如万古霉素）、磺胺类、利福平、氯霉素、甲硝唑、氨曲南、利奈唑胺等。</p>
+<p>抗生素穿透血脑屏障的能力主要取决于其脂溶性、分子大小、蛋白结合率以及脑膜炎症程度。根据脑脊液与血清药物浓度曲线下面积比值（AUC 脑脊液/AUC 血清），可分为以下几类 [2]：</p>
+<p>穿透性（以 AUC 脑脊液/AUC 血清比值评估）分为：</p>
+<p>**① 穿透性高（&gt; 50%）：**在正常或炎症状态下均能较好进入脑脊液。</p>
+<p>**② 穿透性中等（5%～50%）：**在脑膜炎症时，其穿透性可显著增加，是治疗的主要药物。</p>
+<p>**③ 穿透性低或不能穿透（&lt; 5%）：**全身给药时脑脊液浓度极低，通常不推荐单独使用，但在多重耐药菌感染时可考虑联合鞘内或脑室内给药作为补充，见表 1。</p>
+<p>表 1 常用抗菌药物的血脑屏障穿透性分类</p>
+<p><img src="./pic/image-e3bb2d63e8e7b752.png" alt="" /></p>
+<p>注：a、b、c 为脑脊液药物浓度的曲线下面积与血清药物浓度的曲线下面积的比值</p>
+<h2>颅内感染抗菌药物的选择</h2>
+<p>抗菌药物需根据感染类型、病原菌（革兰阳性菌、革兰阴性菌、多重耐药菌等）以及药物能否透过血脑屏障等来选择。在缺乏具体病原体类型、患者年龄、肾功能状态及过敏史等关键临床信息时，应依据循证医学原则进行经验性治疗，并在获取病原学结果后转为目标性治疗。以常见的细菌性脑膜炎和脑脓肿为例，对抗菌药物的选用进行总结。</p>
+<p><strong>细菌性脑膜炎</strong></p>
+<p>是由细菌感染软脑膜而引发的炎症, 是一种严重的感染性疾病。细菌主要通过以下几种途径侵袭脑膜：血液播散；感染扩散 (鼻窦炎、化脓性中耳炎等)；脑脊液与外界相通 (脑脊液鼻漏等) 以及医源性操作 (留置脑脊液引流管、腰椎穿刺、神经外科手术) 等，细菌性脑膜炎的抗菌药物经验性治疗见下表 2 [3]。</p>
+<p>表 2 细菌性脑膜炎的抗菌药物经验性治疗</p>
+<p><img src="./pic/image-a06a3640de8f1a0a.png" alt="" /></p>
+<p>治疗细菌性脑膜炎时鞘内给药应尽量避免，因为可以导致脑脊液内的药物浓度过高而引起惊厥、昏迷等严重后果, 而且通过腰穿给药后药物亦不易分布到脑室系统。但在少数情况下，如选用的药物脑膜通透性较差时，或全身给药疗效不佳时可考虑鞘内注射，以发挥局部给药的优势 [3,4]。具体治疗方法见下表 3。</p>
+<p>表 3 抗菌药物的单次鞘内注射剂量</p>
+<p><img src="./pic/image-7823261981eb823d.png" alt="" /></p>
+<p>注：每次剂量以 2 mL 注射用水稀释后行鞘内注射，注射时反复以脑脊液边稀释边注人</p>
+<p><strong>脑脓肿</strong></p>
+<p>为化脓性病原体 (细菌、真菌及原虫如阿米巴原虫) 侵入脑组织内形成单个或多个脓肿，是一种严重的颅内化脓性的感染性疾病，可以在任何时候、任何年龄中发生。中枢神经系统的脓肿与邻近的局部病以及全身感染、静脉用药、神经外科手术、脑外伤等有关, 继发于中耳炎的脑脓肿多见于老人和儿童, 而在年轻人中则多见继发于鼻实炎的脑脓肿。在免疫受损人群中脑脓肿的发生率增加, 特别是在 HIV 感染者和接受骨髓及器官移植者中多见。脑脓肿的经验治疗见下表 4 [3]。</p>
+<p>表 4 脑脓肿的抗菌药物经验性治疗</p>
+<p><img src="./pic/image-3a9c637a54ee56e0.png" alt="" /></p>
+<h2>细菌性脑膜炎及脑脓肿的</h2>
+<h2>治疗原则</h2>
+<p>细菌性脑膜炎及脑脓肿的治疗原则 [5]：</p>
+<ol>
+<li>
+<p>给予抗菌药物前必须进行脑脊液涂片革兰染色检查、脑脊液培养以及血培养；有皮肤瘀斑者取局部瘀斑作涂片检查细菌。培养获阳性结果后做药敏试验。</p>
+</li>
+<li>
+<p>尽早开始抗菌药物的经验治疗。在获知细菌培养和药敏试验结果后，根据经验治疗疗效和药敏试验结果调整用药。</p>
+</li>
+<li>
+<p>选用易透过血脑屏障的抗菌药物。宜选用杀菌剂，必要时联合用药，一般用最大治疗剂量静脉给药。根据抗菌药物的药动学/药效学（PK/PD）特点制定给药方案。</p>
+</li>
+<li>
+<p>细菌性脑膜炎的疗程因病原菌不同而异。流行性脑脊髓膜炎的疗程一般为 5～7 天，肺炎链球菌脑膜炎在体温恢复正常后继续用药 10～14 天；革兰阴性杆菌脑膜炎疗程至少 4 周；继发于心内膜炎的链球菌属和肠球菌属脑膜炎疗程需 4～6 周。</p>
+</li>
+<li>
+<p>部分脑脓肿患者除积极抗菌治疗外，尚需手术引流。</p>
+</li>
+</ol>
+<h2>细菌性脑膜炎和脑脓肿的病原治疗</h2>
+<p>病原学诊断明确者，评估疗效后，可根据患者治疗效果、器官功能、病原菌类型、药敏试验结果综合确定具体的目标性抗菌药物治疗方案，宜选药物和可选药物见下表 5 [5]。</p>
+<p>表 5 <strong>细菌性脑膜炎和脑脓肿的病原治疗</strong></p>
+<p><img src="./pic/image-1d17da1825f81cfe.png" alt="" /></p>
+<h3>参考文献</h3>
+<ul>
+<li>[1] 范婷, 赵志刚. 抗菌药物透过血脑屏障的研究进展 [J]. 中国现代医药杂志,2018,20(05):98-101.</li>
+<li>[2] 中国医师协会神经外科医师分会神经重症专家委员会, 北京医学会神经外科学分会神经外科危重症学组. 神经外科中枢神经系统感染诊治中国专家共识 (2021 版)[J]. 中华神经外科杂志,2021,37(01):2-15.</li>
+<li>[3] 全国临床药师规范化培训指导委员会. 全国临床药师规范化培训系列教材-抗感染专业 [M]. 北京: 人民卫生出版社, 2017.</li>
+<li>[4] 《抗菌药物临床应用指导原则》修订工作组. 抗菌药物临床应用指导原则 (2015 年版)[M]. 北京: 人民卫生出版社, 2015.</li>
+<li>[5] 中国医药教育协会感染疾病专业委员会．抗菌药物药代动力学/药效学理论临床应用专家共识 [J]. 中华结核和呼吸杂志，2018,41(6):409-446.</li>
+</ul>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>颅脑CT脑叶分区</title>
+    <link href="https://tangkai.me/posts/2026-08-30-a864f7ec-e1d7-4b91-b636-b6d8888d1044/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-a864f7ec-e1d7-4b91-b636-b6d8888d1044/</id>
+    <published>2026-08-08T07:00:00.000Z</published>
+    <updated>2026-08-08T07:00:00.000Z</updated>
+    <summary></summary>
+    <content type="html"><![CDATA[<p>公众号名称：ANDs
+作者名称：☞关注
+发布时间：2026-08-08 07:00</p>
+<p><img src="./pic/image-d240fd90c728c9ae.png" alt="" /></p>
+<p><img src="./pic/image-d71e0b48237ca5c3.png" alt="" /></p>
+<p><img src="./pic/image-68ac6cc804743f02.png" alt="" /></p>
+<p><img src="./pic/image-620312fcd295d542.png" alt="" /></p>
+<p><img src="./pic/image-95eeeec56b941754.png" alt="" /></p>
+<hr />
+<p>☞关注 ANDs</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>昏迷患者，如何进行神经科查体？</title>
+    <link href="https://tangkai.me/posts/2026-08-29-1cac9d45-4e05-4237-a88f-74b10c4f4f57/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-29-1cac9d45-4e05-4237-a88f-74b10c4f4f57/</id>
+    <published>2026-06-22T20:00:00.000Z</published>
+    <updated>2026-06-22T20:00:00.000Z</updated>
+    <summary>初入神经科，比较常见情况就是会诊昏迷病人，怎么快速上手显得有专家范呢，小编教你两个口诀，一用一个准。</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：张群英
+发布时间：2026-06-22 20:00</p>
+<p><img src="./pic/image-d1fbd4cdd7badb0a.png" alt="" /></p>
+<p>昏迷患者病情凶险、病因复杂且变化迅速，开展规范的院内会诊，既能依托多学科协作全面排查、规避漏诊误诊风险、保障医疗安全；也能统一诊疗思路、明确检查与救治方向，提升救治效率，同时凭借专业规范的查体与沟通安抚医患情绪、减少纠纷，更是落实医疗核心制度、展现科室专业水平、助力青年医师积累临床经验的重要环节。初入神经科，比较常见情况就是会诊昏迷病人，怎么快速上手显得有专家范呢，小编教你两个口诀，一用一个准。</p>
+<h2>口诀 1、一观二摸三查眼，四动五射六遍全身</h2>
+<h2>口诀 2、脑痫解毒尿，低低心肝肺</h2>
+<p>（脑、癫痫、电解质、中毒、肾病、低血糖、低血压、心、肝、肺等疾病）</p>
+<h3>一观</h3>
+<p>**1. 看意识状态：**呼喊患者、轻拍手背，判断嗜睡 / 昏睡 / 浅 / 中 / 深昏迷，心里默记 GCS 评分。</p>
+<h3>2. 看生命体征：</h3>
+<p>扫一眼监护仪：呼吸、血压、心率、血氧。</p>
+<p>o 呼吸异常：可提示脑功能障碍的层面，如潮式呼吸常见于大脑半球/间脑水平损伤，中枢神经源性过度通气与中脑/脑桥损伤有关，共济失调或叹息样呼吸则提示延髓受累；</p>
+<p>o 血压骤高→警惕脑出血、脑疝；血压暴跌→休克（低血压）。</p>
+<p>**3. 看外观：**面色、口唇、皮肤、有无外伤、水肿、黄疸、大汗、皮疹、特殊肤色。</p>
+<h3>二摸：快速触诊</h3>
+<p>**1. 摸四肢温度：**湿冷苍白→低血糖、低血压休克；温热多汗→有机磷中毒、低血糖。</p>
+<p>**2. 摸肌肉张力：**全身松软→深昏迷、中毒、代谢病；肢体僵硬 / 肌张力增高→颅内病变。</p>
+<p>**3. 简易触诊颈部：**初步判断有无颈强直（排查脑膜炎、蛛网膜下腔出血）。</p>
+<h3>三查眼</h3>
+<h2>1.瞳孔</h2>
+<p>双侧对比大小、形态、对称性，直接和间接对光反射。</p>
+<p>一侧散大、光反射消失：高度警惕脑疝（危急，必须重点汇报）；</p>
+<p>双侧针尖样缩小：脑桥病变、有机磷 / 阿片类中毒；</p>
+<p>双侧散大固定：脑干衰竭、濒死状态。</p>
+<h2>2.眼球</h2>
+<p>观察静止位置、有无凝视、自发游动 / 浮动。</p>
+<p>双眼同向凝视：偏向病灶侧提示大脑病变；偏向病灶对侧提示脑桥病变；</p>
+<p>眼球游动提示大脑受累、脑干功能尚可；眼球浮动为脑桥病变；眼球双眼缓慢下视、快速恢复为弥漫性缺氧性脑病；眼球垂直障碍为中脑顶盖部病变。</p>
+<p><strong>3.角膜反射</strong>：棉絮轻触角膜，判断脑干功能完整性。</p>
+<p>角膜反射存在：脑干功能尚可，偏向普通颅内病变、低血糖、低血压、肝 / 肺 / 肾性脑病等；</p>
+<p>角膜反射消失：优先考虑脑干原发损伤、重度中毒、极重度昏迷，提示病情凶险。</p>
+<h3>四动：肢体运动评估</h3>
+<p><strong>肢体坠落试验</strong>：双侧上肢依次抬起松手，坠落快慢对比，坠落快的一侧提示偏瘫。</p>
+<p><strong>下肢外旋征</strong>：仰卧位观察下肢，单侧外旋，多为偏瘫。</p>
+<p><strong>疼痛刺激</strong>：针刺肢体，看双侧躲避反应，区分深浅昏迷、局灶病变。</p>
+<p><strong>观察特殊姿势</strong>：去皮质强直、去大脑强直，直接定位脑干损伤平面。</p>
+<h3>五射：反射和脑膜刺激征</h3>
+<p><strong>1. 病理反射</strong>：首选巴氏征，双侧 / 单侧阳性提示锥体束受损，指向颅内器质性病变。</p>
+<p><strong>2.生理反射</strong>：膝反射、肱二头肌反射，对比双侧是否对称。</p>
+<p><strong>3.脑膜刺激征</strong>：颈强直、克氏征、布氏征，阳性提示脑膜病变。</p>
+<h3>六全身：结合口诀排查全身病因</h3>
+<p>查体收尾，对照脑痫解毒尿，低低心肝肺快速过一遍，完善鉴别方向：</p>
+<p>• 有偏瘫、瞳孔异常、凝视、病理征 → 锁定脑、癫痫（颅内原发问题）；</p>
+<p>• 无局灶神经体征 → 依次排查：电解质紊乱、各类中毒、尿毒症、低血糖、低血压、心源性、肝性、肺性脑病。但需注意，无局灶体征时，非惊厥性癫痫持续状态也可表现为意识障碍，必要时需完善脑电图检查。</p>
+<p><strong>场景 1：对接管床医生</strong></p>
+<blockquote>
+<p>「您好，我是神经科会诊医生，过来评估一下昏迷患者。首先想了解几个关键信息： 1. 患者什么时候开始意识不清？起病是突然还是慢慢加重？2. 发病前有没有外伤、抽搐、服药、饮酒、接触特殊毒物？3. 既往有没有脑梗、脑出血、癫痫、肝肾、心肺、糖尿病病史？4. 目前血糖、血气、电解质、相关化验结果出来了吗？」 查体中同步沟通「我先查一下瞳孔和眼球活动，这是判断脑干功能的关键；再看看肢体活动，判断有没有偏瘫。」</p>
+</blockquote>
+<p><strong>场景 2：查完快速自问 3 个问题</strong></p>
+<blockquote>
+<p>① 有没有瞳孔 / 眼球 / 偏瘫等局灶体征？定方向（颅内 / 全身）② 生命体征稳不稳？判断危重程度 ③ 结合口诀，最可能是哪 1～2 类病因？ 给出检查建议，比如：</p>
+<p>a.存在局灶神经体征，优先考虑颅内病变</p>
+<p>结合查体：患者目前 XX 程度昏迷，双侧瞳孔不等大 / 双眼向一侧凝视 / 单侧肢体偏瘫 / 巴氏征阳性，存在明确神经系统局灶体征。结合病史，首先考虑急性脑血管病（脑出血 / 脑梗死），不除外脑疝、颅内感染等问题。建议：1. 紧急完善头颅 CT 明确颅内情况；2. 密切监测瞳孔、血压、呼吸，警惕病情进展；3. 对症监护，必要时进一步影像学 + 腰穿检查。」</p>
+<p>b.无局灶体征，偏向全身性疾病</p>
+<p>「患者意识障碍，但瞳孔、眼球、肢体活动基本对称，无明显偏瘫、病理征，暂不支持颅内原发器质性病变。按照昏迷常见病因，重点排查：低血糖 / 低血压、电解质紊乱、药物 / 毒物中毒、肝性脑病、肺性脑病、肾性脑病。建议：加急复查血糖、血压、血气分析、肝肾功能、电解质，完善相关脏器评估，针对性处理原发病。」</p>
+<p>c.发现危急体征（如脑疝）「目前患者一侧瞳孔散大，对光反射消失，高度提示小脑幕切迹疝，属于急症！立即予以降颅压处理，加急头颅 CT，持续监护生命体征，随时做好抢救准备。」</p>
+</blockquote>
+<p>对于初入神经内科的医护人员而言，昏迷患者会诊与查体是核心基本功，规范落实一观二摸三查眼，四动五射六遍全身的查体流程、熟记脑痫解毒尿，低低心肝肺病因口诀，是快速理清诊疗思路的关键；**查体务必优先关注瞳孔、呼吸、肢体活动等核心体征，精准识别脑疝、休克等危急情况，同时要规避查体顺序混乱、漏查关键项目、诊断表述绝对化、仅关注神经体征忽略全身脏器评估等常见问题。**规范查体不仅能降低漏诊误诊风险、筑牢医疗安全底线，还能高效推动多科室协作、统一诊疗方向，从容专业的状态也可安抚医患情绪、减少纠纷，既是落实医疗核心制度的要求，也能帮助新人快速积累临床经验、树立专业形象。</p>
+<p>注释：文中 「一观二摸三查眼，四动五射六遍全身」「脑痫解毒尿，低低心肝肺」 为国内急诊、神经内科、重症医学科临床经验速记口诀，长期应用于床旁查体、昏迷病因鉴别及医师带教，多见于国内医学交流平台与院内临床培训资料。</p>
+<blockquote>
+<p>参考文献</p>
+<p>[1] 吴江，贾建平. 神经病学：第 3 版 [M]. 北京：人民卫生出版社，2015.</p>
+<p>[2] 王维治，王化冰译. 临床神经病学：第 8 版 [M]. 北京：人民卫生出版社.</p>
+</blockquote>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>正常脑血管造影解剖图解【建议收藏！】</title>
+    <link href="https://tangkai.me/posts/2026-08-30-831a29cb-27fa-4c4e-82e1-725913022e59/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-831a29cb-27fa-4c4e-82e1-725913022e59/</id>
+    <published>2026-05-25T10:00:00.000Z</published>
+    <updated>2026-05-25T10:00:00.000Z</updated>
+    <summary>正常脑血管造影解剖图解请把这篇文章转给所有人看到</summary>
+    <content type="html"><![CDATA[<p>公众号名称：神经科时间
+作者名称：
+发布时间：2026-05-25 10:00</p>
+<p><img src="./pic/image-8e9d7603c642363c.png" alt="" /></p>
+<blockquote>
+<p><strong>正常脑血管造影解剖图解</strong></p>
+</blockquote>
+<p><img src="./pic/image-470a1f2d466eae66.png" alt="|23" /></p>
+<p><img src="./pic/image-5622ad46aa0dc375.png" alt="" /></p>
+<p><img src="./pic/image-1a49cf4460cc8468.png" alt="" /></p>
+<p><img src="./pic/image-e6d249276f0a0ad1.png" alt="" /></p>
+<p><img src="./pic/image-ce304462772df1c4.png" alt="" /></p>
+<p><img src="./pic/image-22a2525ed3895d0f.png" alt="" /></p>
+<p><img src="./pic/image-c800c4c1eb22c50c.png" alt="" /></p>
+<p><img src="./pic/image-1b49aa8975844173.png" alt="" /></p>
+<p><img src="./pic/image-0926c9e671bdc88f.png" alt="" /></p>
+<p><img src="./pic/image-154eb0b28a16b4d8.png" alt="" /></p>
+<p><img src="./pic/image-382a887d88f941a6.png" alt="" /></p>
+<p><img src="./pic/image-f7683b25693152be.png" alt="" /></p>
+<p><img src="./pic/image-9db4cd56055a3c16.png" alt="" /></p>
+<p><img src="./pic/image-6a268dc9d6437849.png" alt="" /></p>
+<p><img src="./pic/image-d2dc0cc1b3231141.png" alt="" /></p>
+<p><img src="./pic/image-79c51cd7be499d05.png" alt="" /></p>
+<p><img src="./pic/image-78e0ea1a50308798.png" alt="" /></p>
+<p><img src="./pic/image-706e2958333618d9.png" alt="" /></p>
+<p><img src="./pic/image-7f5d59cc48cb326b.png" alt="" /></p>
+<p><img src="./pic/image-e17b016bf281e9e1.png" alt="" /></p>
+<p><img src="./pic/image-9c89ced18b0bde15.png" alt="" /></p>
+<p><img src="./pic/image-27a8877466b017be.png" alt="" /></p>
+<p><img src="./pic/image-dd3a1763292d8b96.png" alt="" /></p>
+<p><img src="./pic/image-c4a880b5c4856dd6.png" alt="" /></p>
+<p><img src="./pic/image-2dcc2417eb18acb8.png" alt="" /></p>
+<p><img src="./pic/image-5bcf5efa9cf54994.png" alt="" /></p>
+<p><img src="./pic/image-c1f1424ee5d3ecd5.png" alt="" /></p>
+<p>请把这篇文章转给所有人看到</p>
+<hr />
+<h2>正常脑血管造影解剖图解【建议收藏！】</h2>
+<p>神经科时间</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>正常脑血管造影解剖图解【建议收藏！】</title>
+    <link href="https://tangkai.me/posts/2026-09-02-b2f6112b-b9b0-495c-8c47-c69b8bf137e5/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-02-b2f6112b-b9b0-495c-8c47-c69b8bf137e5/</id>
+    <published>2026-05-25T10:00:00.000Z</published>
+    <updated>2026-05-25T10:00:00.000Z</updated>
+    <summary>正常脑血管造影解剖图解请把这篇文章转给所有人看到</summary>
+    <content type="html"><![CDATA[<p>公众号名称：神经科时间
+作者名称：
+发布时间：2026-05-25 10:00</p>
+<p><img src="./pic/image-8e9d7603c642363c.png" alt="" /></p>
+<blockquote>
+<p><strong>正常脑血管造影解剖图解</strong></p>
+</blockquote>
+<p><img src="./pic/image-470a1f2d466eae66.png" alt="|23" /></p>
+<p><img src="./pic/image-5622ad46aa0dc375.png" alt="" /></p>
+<p><img src="./pic/image-1a49cf4460cc8468.png" alt="" /></p>
+<p><img src="./pic/image-e6d249276f0a0ad1.png" alt="" /></p>
+<p><img src="./pic/image-ce304462772df1c4.png" alt="" /></p>
+<p><img src="./pic/image-22a2525ed3895d0f.png" alt="" /></p>
+<p><img src="./pic/image-c800c4c1eb22c50c.png" alt="" /></p>
+<p><img src="./pic/image-1b49aa8975844173.png" alt="" /></p>
+<p><img src="./pic/image-0926c9e671bdc88f.png" alt="" /></p>
+<p><img src="./pic/image-154eb0b28a16b4d8.png" alt="" /></p>
+<p><img src="./pic/image-382a887d88f941a6.png" alt="" /></p>
+<p><img src="./pic/image-f7683b25693152be.png" alt="" /></p>
+<p><img src="./pic/image-9db4cd56055a3c16.png" alt="" /></p>
+<p><img src="./pic/image-6a268dc9d6437849.png" alt="" /></p>
+<p><img src="./pic/image-d2dc0cc1b3231141.png" alt="" /></p>
+<p><img src="./pic/image-79c51cd7be499d05.png" alt="" /></p>
+<p><img src="./pic/image-78e0ea1a50308798.png" alt="" /></p>
+<p><img src="./pic/image-706e2958333618d9.png" alt="" /></p>
+<p><img src="./pic/image-7f5d59cc48cb326b.png" alt="" /></p>
+<p><img src="./pic/image-e17b016bf281e9e1.png" alt="" /></p>
+<p><img src="./pic/image-9c89ced18b0bde15.png" alt="" /></p>
+<p><img src="./pic/image-27a8877466b017be.png" alt="" /></p>
+<p><img src="./pic/image-dd3a1763292d8b96.png" alt="" /></p>
+<p><img src="./pic/image-c4a880b5c4856dd6.png" alt="" /></p>
+<p><img src="./pic/image-2dcc2417eb18acb8.png" alt="" /></p>
+<p><img src="./pic/image-5bcf5efa9cf54994.png" alt="" /></p>
+<p><img src="./pic/image-c1f1424ee5d3ecd5.png" alt="" /></p>
+<p>请把这篇文章转给所有人看到</p>
+<hr />
+<h2>正常脑血管造影解剖图解【建议收藏！】</h2>
+<p>神经科时间</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>脑血管重度狭窄：「阿司匹林 + 氯吡格雷」，双抗到底用多久？</title>
+    <link href="https://tangkai.me/posts/2026-08-30-7e8d0d7f-cc3e-4ba1-9016-34d770f0906d/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-7e8d0d7f-cc3e-4ba1-9016-34d770f0906d/</id>
+    <published>2026-03-05T20:00:00.000Z</published>
+    <updated>2026-03-05T20:00:00.000Z</updated>
+    <summary>你知道吗</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：利奥
+发布时间：2026-03-05 20:00</p>
+<p><img src="./pic/image-b96b4970c00a80d8.png" alt="" /></p>
+<blockquote>
+<p><strong>1</strong></p>
+<p><strong>什么是脑血管狭窄？</strong></p>
+</blockquote>
+<p>一般意义上的脑血管狭窄指的是颅内及颅外大动脉狭窄。</p>
+<p>颅内动脉包括颈内动脉 C6～7 段、大脑中动脉、大脑前动脉、大脑后动脉、椎动脉 V4 段、基底动脉；颅外动脉包括颈内动脉 C1～5 段、颈外动脉、椎动脉 V1～3 段、颈总动脉、锁骨下动脉起始段、主动脉弓。</p>
+<p>脑动脉狭窄即上述动脉出现 1 处或多处狭窄率 50%～99% 的病变。颅外动脉狭窄率参考颈动脉颅外段 NASCET 法，而颅内动脉狭窄率则仿照 WASID 研究的方法。</p>
+<p>从狭窄程度来讲，0～49% 为轻度狭窄，50%～69% 为中度狭窄，70%～99% 为重度狭窄。</p>
+<blockquote>
+<p><strong>2</strong></p>
+<p><strong>脑血管狭窄有哪些分类？</strong></p>
+</blockquote>
+<p>根据狭窄血管对应供血区是否发生过缺血性卒中或短暂性脑缺血发作（TIA）事件，定义为症状性或非症状性脑血管狭窄。</p>
+<p>一般认为，当6 月内该狭窄血管供血区发生过缺血性卒中或 TIA 时，称为「症状性脑动脉狭窄」。</p>
+<p>此外，脑血管狭窄的病因是多样的，如动脉粥样硬化、血管炎、夹层、肿瘤等等。但是，动脉粥样硬化性颅内外大血管狭窄毫无疑问是比例最高，是缺血性卒中的首要病因。尤其我国患者，颅内动脉粥样硬化狭窄的疾病负担更重。</p>
+<blockquote>
+<p><strong>3</strong></p>
+</blockquote>
+<h2>动脉粥样硬化性颅内外大血管狭窄的治疗</h2>
+<p>动脉粥样硬化性颅内外大血管狭窄的治疗主要包括三个方面：动脉粥样硬化危险因素控制、抗栓药物的选择、手术治疗。</p>
+<p>对于无症状性脑动脉狭窄，相关管理内容基本等同于脑血管病一级预防指南。下文相关内容除特别说明，均针对于症状性脑动脉狭窄。</p>
+<h2>01、动脉粥样硬化危险因素控制</h2>
+<p>药物治疗是症状性颅内动脉粥样硬化的基石，相关危险因素的控制及生活方式的干预即药物治疗的核心部分。其包括血压管理、血脂管理、血糖管理等等。</p>
+<h3>1）血压管理</h3>
+<p>合并脑血管狭窄的缺血性卒中患者实施降压治疗应警惕低灌注事件的风险，其降压时机和血压目标值应个体化确定。</p>
+<p>但明确的是，长期血压控制目标在可耐受的情况下是越低越好的，当然目前最低血压值并不明确，因此，对于血压目标指南的推荐是比较一致的即 &lt; 140/90 mmHg，且应注意逐步平稳降压，优先选择长效降压药物。</p>
+<h3>2）血脂管理</h3>
+<p>结合 SPARCL 研究等研究成果，推荐早期强化降脂治疗，首先推荐使用他汀类药物使低密度脂蛋白 LDL-C 水平降至 &lt; 1.8 mmol/L 或降幅 &gt; 50%，当然必要时也可考虑使用其他降脂药物如依折麦步、PCSK9 抑制剂等。</p>
+<h2>02、抗栓药物</h2>
+<p>抗栓药物（主指抗血小板聚集药物）是脑血管狭窄药物治疗的核心内容。</p>
+<p>目前总体原则来说，结合 SAMMPRIS 研究、CLAIR 研究、CARESS 等研究结果，目前对于症状性脑动脉狭窄，推荐急性期联用阿司匹林及氯吡格雷双抗 90 天，随后改为单抗治疗。</p>
+<p>不过，如果该患者同时存在氯吡格雷药物抵抗的话（CYP2C19 基因型中代谢或慢代谢），则应使用西洛他唑或替格瑞洛替代氯吡格雷。</p>
+<p>但要注意的是，阿司匹林联用替格瑞洛不宜超过 21 天，当联用替格瑞洛长期双抗时会明确显著增加出血风险，而对于无症状性脑动脉狭窄的抗栓治疗，目前尚未形成共识，对于无症状性重度脑血管狭窄，短期双抗似乎是更常用的选择。</p>
+<p>此外，需注意的事，现在有相当多比例的脑血管狭窄患者接受了支架植入治疗，该类支架患者一般术后需双抗 90 天，再改为单抗。但是，当患者植入的支架是药物涂层支架（目前已上市的包括椎动脉颅外段专用支架 MAURORA、BRIDGE 及颅内动脉专用支架 NOVA 等），术后需双抗 6 个月，再改为单抗。</p>
+<h2>03、手术治疗</h2>
+<p>脑血管狭窄的手术治疗包括血管内治疗及外科手术治疗，下文主要介绍血管内治疗的相关内容。</p>
+<p>对于症状性颅内动脉狭窄，血管内治疗即支架植入治疗的推荐级别一直是不高的，因为 SAMMPRIS 研究、VISSIT 研究及去年由我国宣武医院焦力群教授牵头完成的 CASSISS 研究均未证实联用血管内治疗优于单纯药物治疗。</p>
+<p>但是，近年来一系列后续研究认为，对于一些经严格筛选的症状性颅内动脉粥样硬化狭窄患者，血管内治疗可能是获益的。</p>
+<p>血管内治疗标准大致可包括：重度狭窄、经过强化内科治疗无效、责任血管供血区存在低灌注、侧支代偿不良等等。对于该类患者，严格的术前评估及决策就尤其重要。</p>
+<p><strong>目前已形成的共识包括：</strong></p>
+<p>1）手术时机：症状性颅内动脉狭窄患者在缺血性卒中发生至少 2 周后再行血管内治疗可能是安全的（进展性卒中除外）。</p>
+<p>2）侧支循环差的患者更有可能从血管内治疗中获益（定义为 ASTIN/SIR 评分 &lt; 3）。</p>
+<p>3）责任血管区域存在血流动力学障碍的患者更能从血管内治疗获益。可参考以下标准判断是否存在低灌注：CTP 提示前循环病变较对侧灌注下降 ≥ 30% 或后循环病变较前循环灌注下降 ≥ 30%；基于 DSA 评估 ASTIN/SIR 评分 &lt; 3 分；基于影像学提示分水岭性梗死灶等。</p>
+<p>4）血管内治疗术应尽量由经验丰富、条件成熟的中心及术者实施。此外，近年来一些新理念和新材料的实施也提高了血管内治疗的获益，降低了围手术期风险，如单纯球囊扩张理念、亚满意扩张理念、药物涂层支架/球囊的应用等。</p>
+<p>对于症状性颅外动脉狭窄，支架植入术目前已被广泛认可为重要的治疗选择。对于无症状性颅外动脉狭窄，是否应实施血管内治疗目前存在争议。</p>
+<h2>04、无症状颈动脉重度狭窄</h2>
+<p>目前指南比较认可的推荐是对于无症状颈动脉重度狭窄（≥ 70%），预期寿命若 &gt; 5 年，颈动脉内膜剥脱术或支架治疗可作为药物治疗的辅助手段，但应在有条件的医院（围手术期卒中和死亡发生率 &lt; 3%）进行。</p>
+<p>最后，针对无症状颈动脉狭窄的管理，列举《中国脑血管病临床管理指南（第 2 版）》的管理流程图（图 1），以资读者参考。</p>
+<p><img src="./pic/image-2a4691540a7e34ec.png" alt="" /></p>
+<p>图 无症状颈动脉狭窄管理流程</p>
+<p>截图自《中国脑血管病临床管理指南（第 2 版）》</p>
+<p>本文审核：吴川杰 首都医科大学宣武医院神经内科 副主任医师</p>
+<p>投稿｜jiarufei@dxy.cn</p>
+<p>参考文献：</p>
+<h2>1.《中国脑血管病临床管理指南（第2版）》.人民卫生出版社.</h2>
+<p>2.中国卒中学会神经介入分会.症状性颅内动脉粥样硬化性狭窄血管内治疗中国专家共识2022[J].中国卒中杂志,2022,17(08):863-888.</p>
+<p>3.中国卒中学会科学声明专家组,濮月华,荆京,等.症状性颅内外动脉粥样硬化性大动脉狭窄管理规范——中国卒中学会科学声明[J].中国卒中杂志,2017,12(01):64-71.</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>简单粗暴！但实用值拉满——头颅影像解剖结构（标识版）</title>
+    <link href="https://tangkai.me/posts/2026-08-29-dc97be6c-f973-4112-ba35-0698c9e5a164/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-29-dc97be6c-f973-4112-ba35-0698c9e5a164/</id>
+    <published>2026-01-05T22:07:00.000Z</published>
+    <updated>2026-01-05T22:07:00.000Z</updated>
+    <summary>图文来源于网络中央沟：从冠状平面将大脑分成额叶和顶叶的脑沟。半卵圆中心：指脑室上部的脑白质区域（层面上不出现侧脑室）放射冠：指两侧侧脑室周围的脑白质层面。</summary>
+    <content type="html"><![CDATA[<p>公众号名称：华夏影像诊断中心
+作者名称：
+发布时间：2026-01-05 22:07</p>
+<p><img src="./pic/image-976937205d530eca.png" alt="" /></p>
+<p><img src="./pic/image-cc7671238f2f04f4.png" alt="" /></p>
+<p>图文来源于网络</p>
+<p><img src="./pic/image-ac22e8c3a39af6cd.png" alt="" /></p>
+<p>中央沟：从冠状平面将大脑分成额叶和顶叶的脑沟。</p>
+<p><img src="./pic/image-af9654a7f30f3d6a.png" alt="" /></p>
+<p><img src="./pic/image-769bb08b9776c90e.png" alt="" /></p>
+<p><img src="./pic/image-1c8d167ef9aee1f1.png" alt="" /></p>
+<p>半卵圆中心：指脑室上部的脑白质区域（层面上不出现侧脑室）</p>
+<p>放射冠：指两侧侧脑室周围的脑白质层面。</p>
+<p><img src="./pic/image-7eaa4c97e55169a4.png" alt="" /></p>
+<p><img src="./pic/image-5582a74c882bb570.png" alt="" /></p>
+<p>顶枕沟：枕叶与顶叶的分界，位于大脑半球内侧面的后部</p>
+<p><img src="./pic/image-ff1610a111d8e4a6.png" alt="" /></p>
+<p><img src="./pic/image-8447b2726abff3e3.png" alt="" /></p>
+<p><img src="./pic/image-0f547c4733114032.png" alt="" /></p>
+<p><img src="./pic/image-c4602f7a2c15b9c1.png" alt="" /></p>
+<p><img src="./pic/image-f2dab3728bc47121.png" alt="" /></p>
+<p><img src="./pic/image-26b024c904cc061f.png" alt="" /></p>
+<p><img src="./pic/image-c6b84dbdb916736e.png" alt="" /></p>
+<p><img src="./pic/image-a5a23becf7d031d9.png" alt="" /></p>
+<p><img src="./pic/image-2d477d9b79de62aa.png" alt="" /></p>
+<p><img src="./pic/image-a70b8f6bfe56a386.png" alt="" /></p>
+<p><img src="./pic/image-0c223e157f181fcb.png" alt="" /></p>
+<p><strong>·END·</strong></p>
+<p>转载自：医学解剖</p>
+<p><img src="./pic/image-fcc2b73250b8b7e5.png" alt="" /></p>
+<hr />
+<h2>简单粗暴！但实用值拉满——头颅影像解剖结构（标识版）</h2>
+<p>华夏影像诊断中心</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>脑梗死取栓四大经典研究入组标准</title>
+    <link href="https://tangkai.me/posts/2026-08-30-c8a1a9aa-2c83-4122-9aa7-7231d67c5a40/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-c8a1a9aa-2c83-4122-9aa7-7231d67c5a40/</id>
+    <published>2026-01-04T07:30:00.000Z</published>
+    <updated>2026-01-04T07:30:00.000Z</updated>
+    <summary></summary>
+    <content type="html"><![CDATA[<p>公众号名称：医海无涯苦作舟
+作者名称：点击关注👉
+发布时间：2026-01-04 07:30</p>
+<p><img src="./pic/image-200098df6a6aa0e5.png" alt="" /></p>
+<h2>前循环取栓</h2>
+<p><strong>DAWN研究入组标准：</strong></p>
+<p>1、静脉溶栓失败或者存在禁忌；</p>
+<p>2、年龄≥18 岁；</p>
+<p>3、基线 NIHSS ≥10（在测量核心梗死体积后一小时内进行评估）；</p>
+<p>4、发病时间在6 至 24h之间；</p>
+<p>5、卒中前无明显残疾（卒中前 mRS 必须为 0 或 1）；</p>
+<h2>6、神经影像:</h2>
+<p>（1） CT 或MRI显示MCA 供血区受累＜1/3；</p>
+<p>（2）MRA 或 CTA 证实颅内 ICA 和/或 MCA-M1 闭塞；</p>
+<h4>（3）临床成像不匹配定义为 MR-DWI 或 CTP-rCBF 图：</h4>
+<p>a. 梗死体积＜21 ml 且 NIHSS ≥ 10（年龄≥ 80 岁）；</p>
+<p>b. 梗死体积＜31 ml 且 NIHSS ≥ 10（年龄＜80 岁）；</p>
+<p>c. 梗死体积31 ml 至 51 ml 且 NIHSS ≥ 20（年龄＜80 岁）。</p>
+<h3>DEFUSE-3研究入组标准：</h3>
+<p>1、年龄在 18-90 岁之间；</p>
+<p>2、基线 NIHSSS ≥6，且在随机化前保持≥6；</p>
+<p>3、可在卒中发生后 6 至 16 小时内开始血管内治疗；</p>
+<h2>4、卒中发生前mRS≤ 2</h2>
+<h2>5、神经影像学纳入标准：</h2>
+<p>（1）通过 MRA 或 CTA 检查发现 ICA 或 MCA-M1 闭塞（颈动脉或颅内颈动脉闭塞；伴有或不伴有串联 MCA 病变）；</p>
+<p>（2）CT 灌注或磁共振成像显示目标错配特征（缺血核心体积＜ 70 ml，缺血区/梗死区体积比 ＞ 1.8，缺血区与梗死区体积错配体积＞ 15 ml）。</p>
+<p><strong>后循环取栓</strong></p>
+<h3>ATTENTION研究入组标准：</h3>
+<p>1.年龄大于18岁，经过查体确定为基底动脉供血区梗死的症状和体征；</p>
+<p>2. 经CTA或MRA或DSA证实基底动脉闭塞；</p>
+<p>3.卒中发病到随机化的时间在基底动脉闭塞估计时间12 小时内；</p>
+<p>4.不考虑前期轻微症状，比如头晕等；</p>
+<p>5.神经影像学检查时NIHSS评分≥10 分。</p>
+<h3>BAOCHE研究入组标准：</h3>
+<p>1. 年龄为18-80岁，后循环急性缺血性卒中，自症状（除孤立性眩晕）出现最后一次正常起 6-24 小时内；</p>
+<p>2.患者已接受静脉溶栓治疗但未再通，或者存在禁忌；</p>
+<p>3. 影像学检查证实基底动脉或双侧椎动脉（V4）颅内段闭塞（TIMI 0-1）；</p>
+<p>4. 随机化前获得的基线NIHSS 评分必须≥ 6 分；</p>
+<p>5. 此次卒中前无明显功能障碍（mRS ≤ 1）；</p>
+<p>6. 孤立性眩晕（不伴有构音障碍、肢体无力、感觉症状、复视、意识减退）不被视为症状开始。</p>
+<h3>附: 取栓术中右美托咪定用法</h3>
+<p>右美托咪定为高选择性α2肾上腺素能受体激动药，在急诊神经介入中使用非常方便，该药对呼吸影响比较小，同全麻的安全性比较没有差异。临床中常用药物规格：盐酸右美托咪定注射液 2ml:0.2mg/支；盐酸右美托咪定注射液：1ml：0.1mg。</p>
+<p>本品在给药前必须用0.9%的氯化钠溶液稀释达浓度4μg/ml，即为0.2mg溶入48ml生理盐水中使用，开始10分钟内静脉注射给予负荷剂量1μg/kg，随后可静脉滴注给予维持剂量，以每小时0.2-0.7μg/kg的速度给药。手术结束后即停用即可。右美托咪定用药后，一般起效时间是10～15min，达峰时间25～30min，因此30min内不宜频繁增加输注剂量，以免镇静过度。</p>
+<p>50kg: 前10min 走速为75ml/h（12.5ml），后维持2.5ml/h～8.75ml/h</p>
+<p>55kg: 前10min走速为82.5ml/h(约13.5ml)，后维持2.7ml/h～9.6ml/h</p>
+<p>60kg: 前10min走速为90ml/h(15ml)，后维持3ml/h～10.5ml/h</p>
+<p>以上剂量基本够用，体重增加，不建议继续加量，走速维持10ml/h基本够用，注意联合使用镇静药物后适当减量。</p>
+<p>最常见的不良反应为低血压、心动过缓</p>
+<p>及口干，所以术中要密切关注患者血压情况，另外年老的病人肾功能降低者，应当谨慎选择右美托咪定的剂量，并且监测肾脏功能。严重肾功能损害患者（肌酐清除率＜30ｍl/min）的右美托咪定的药代动力学参数与健康受试者相比无明显差异，但长期输注时应降低其使用剂量。轻度、中度和重度肝功能损伤患者右美托咪定的平均清除率分别为74％、64％和53％；重度肝功能不全患者，右美托咪定半衰期增加，故应减少其使用剂量并提前停药。</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>给脑梗死患者开「双抗 21 天」，主任却说大错特错？</title>
+    <link href="https://tangkai.me/posts/2026-08-30-49be0939-1f61-4811-8f6d-4668804f6186/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-49be0939-1f61-4811-8f6d-4668804f6186/</id>
+    <published>2025-10-26T20:00:00.000Z</published>
+    <updated>2025-10-26T20:00:00.000Z</updated>
+    <summary>这篇总结快收好！</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：Ailsa
+发布时间：2025-10-26 20:00</p>
+<p><img src="./pic/image-b46842c685448ece.png" alt="" /></p>
+<p>本文通过典型病例，探讨**不同临床情景下，卒中患者抗板治疗的剂量差异和策略，**帮助临床医生做出更加精准的治疗决策。</p>
+<blockquote>
+<p><strong>01</strong></p>
+</blockquote>
+<h3>高风险 TIA</h3>
+<h3>病例 1. 发病 24 h 内的急性非心源性 TIA（ABCD2 评分 ≥ 4）</h3>
+<p>患者男性，65 岁，因「发作性右侧肢体无力 18 小时」就诊，共发作 2 次，每次持续约 30 分钟，既往糖尿病、高血压病史，颅脑 MRI + MRA 未见异常，ABCD2 评分 6 分。诊断为短暂性脑缺血发作（高危）。</p>
+<h3>分析：</h3>
+<p>该患为高风险 TIA，病情进展性加重的可能性大，可出现持续性右侧肢体无力、甚至右侧肢体完全瘫痪，目前症状未持续，应积极抗板治疗。</p>
+<h3>抗板策略：</h3>
+<p>①&lt;u&gt;对于反复发作的 TIA，替罗非班泵注 24 小时，后改用阿司匹林肠溶片 0.1 g + 波立维 75 mg（需重叠 4～6 小时），双抗 21 天后改为单抗；&lt;/u&gt;</p>
+<p>②阿司匹林肠溶片 0.1 g + 波立维 75 mg（首剂量给予负荷量，各 300 mg），双抗 21 天后改为单抗；</p>
+<p>③如已完成 CYP2C19 基因检测，且为 CYP2C19 功能缺失等位基因携带者，推荐给予替格瑞洛（首日负荷剂量 180 mg，之后每次 90 mg，每日 2 次）联合阿司匹林治疗 21 d，此后替格瑞洛单抗。</p>
+<blockquote>
+<p><strong>02</strong></p>
+</blockquote>
+<h3>轻型 AIS</h3>
+<h3>病例 2. 未静脉溶栓的轻型卒中患者 (NIHSS 评分 ≤ 3 分）</h3>
+<p>患者女性，56 岁，因「言语不清、右侧肢体无力 11 小时」入院。查体：构音障碍，右侧肢体肌力 5-级，右侧巴氏征阳性。NIHSS 评分 2 分（构音）。</p>
+<h3>分析：</h3>
+<p>轻型卒中与 90 天内继发卒中的高风险（8～10% 的患者）相关，积极双抗治疗能显著降低 90 d 卒中复发风险。</p>
+<h2>抗板策略：</h2>
+<p>①&lt;u&gt;阿司匹林肠溶片 0.1 g + 波立维 75 mg，双抗 21 天后改为单抗；&lt;/u&gt;</p>
+<p>②如已完成 CYP2C19 基因检测，且为 CYP2C19 功能缺失等位基因携带者，推荐给予替格瑞洛（首日负荷剂量 180 mg，之后每次 90 mg，每日 2 次）联合阿司匹林治疗 21 d，此后替格瑞洛单抗。</p>
+<blockquote>
+<p><strong>03</strong></p>
+</blockquote>
+<h3>合并颅内大动脉粥样硬化的 AIS 患者</h3>
+<blockquote>
+<p><strong>病例 3. 患者女性，62 岁，因「左侧肢体活动不灵 1 天」入院。</strong></p>
+<p>查体：左侧肢体肌力 3 级，左侧巴氏征阳性。颅脑磁共振：右侧基底节区 DWI 高信号，MRA 示右侧大脑中动脉狭窄近闭塞。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>症状性颅内大动脉粥样硬化狭窄是缺血性卒中的主要原因，其复发风险超过 20%，高于普通缺血性卒中，积极双抗治疗能降低 90 天内再发风险。</p>
+<h2>抗板策略：</h2>
+<p>①发病 30 d 内伴症状性颅内动脉狭窄（狭窄率 70%～99%）的卒中，&lt;u&gt;阿司匹林肠溶片 0.1 g + 波立维 75 mg，双抗 90 天后改为单抗长期二级预防；&lt;/u&gt;</p>
+<p>②6 个月内的 TIA 或非致残性脑梗死或周围动脉栓塞患者，合并主动脉弓斑块（≥ 4 mm）时，双抗不超过 3 个月，之后氯吡格雷长期抗板治疗。</p>
+<blockquote>
+<p><strong>04</strong></p>
+</blockquote>
+<h3>脑卒中行血管内支架成形术（PTAS）</h3>
+<blockquote>
+<p><strong>病例 4. 患者 70 岁女性，因「左侧肢体活动不灵 2 天」入院。</strong></p>
+<p>既往高血压病史，颅脑 MRI 示右侧基底节区梗死，DSA 示右侧大脑中动脉重度狭窄，行血管内支架成形术。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>由于支架植入，导致血管内皮细胞的损伤，在内皮安全覆盖支架之前，血小板容易聚集在支架周围，导致血栓的形成。因此术后需积极抗板治疗，以减少血小板在支架周围的聚集，避免支架内血栓形成。</p>
+<h2>抗板策略：</h2>
+<p>&lt;u&gt;术前&lt;/u&gt;&lt;u&gt;负荷剂量双抗，术后持续双抗 1～6 个月。&lt;/u&gt;</p>
+<blockquote>
+<p><strong>05</strong></p>
+</blockquote>
+<h3>合并动脉夹层的 AIS</h3>
+<blockquote>
+<p><strong>病例 5. 患者 42 岁男性，因「运动后言语不清、右侧肢体无力」入院。</strong></p>
+<p>既往体检。颅脑 MRI 示左侧基底节区梗死，DSA 示左侧颈内动脉夹层。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>颈动脉夹层患者使用抗凝还是抗板治疗缺乏足够证据，当存在抗凝禁忌时，倾向抗板治疗。对于颈部动脉夹层复发、或有颈部动脉夹层家族史的颈部动脉夹层者，可考虑长期抗板治疗。</p>
+<h2>抗板策略：</h2>
+<p>&lt;u&gt;通常维持抗板 3～6 个月。&lt;/u&gt;可单用阿司匹林、氯吡格雷或双嘧达莫，也可用阿司匹林 + 氯吡格雷或阿司匹林 + 双嘧达莫。</p>
+<blockquote>
+<p><strong>06</strong></p>
+</blockquote>
+<h3>烟雾病</h3>
+<blockquote>
+<p><strong>病例 6. 患者男性，58 岁，因「头痛、右侧肢体活动不灵 16 小时」入院。</strong></p>
+<p>颅脑 MRI 示左侧大脑半球梗死，MRA 示双侧颈内动脉颅内段末端闭塞，DSA 考虑烟雾病。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>烟雾病患者长期大血管闭塞，继发血管区域改变及侧支循环多样化发育，同时存在脑梗死和脑出血的风险，故抗板治疗需谨慎，抗板药物可降低烟雾病缺血性卒中的复发率。</p>
+<h2>抗板策略：</h2>
+<p>&lt;u&gt;阿司匹林肠溶片 0.1 g qd&lt;/u&gt;，若无法耐受阿司匹林或效果差，可改为波立维 75 mg qd。</p>
+<blockquote>
+<p><strong>07</strong></p>
+</blockquote>
+<h3>合并抗磷脂综合征的 AIS</h3>
+<blockquote>
+<p><strong>病例 7. 患者 48 岁女性，既往反复流产病史，因「左侧肢体乏力伴麻木 1 天」入院。</strong></p>
+<p>颅脑 MRI 示右侧基底节区新发脑梗死，MRA 示右侧颈内动脉起始段局部管腔狭窄、右侧大脑后动脉 P1 段局部管腔狭窄。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>抗磷脂综合征是一种由于抗磷脂抗体作用于血小板或者内皮细胞磷脂，引起血小板聚集，从而导致血管阻塞的综合征。孤立抗磷脂抗体阳性，但不符合抗磷脂综合征的 AIS 或 TIA 患者，也增加了血栓形成事件的机率，推荐使用抗血小板治疗降低卒中复发风险。</p>
+<h2>抗板策略：</h2>
+<p>阿司匹林肠溶片 0.1 g 或波立维 75 mg qd。</p>
+<blockquote>
+<p><strong>08</strong></p>
+</blockquote>
+<h3>合并血小板减少症的 AIS</h3>
+<blockquote>
+<p><strong>病例 8. 患者 65 岁男性，因「言语不能、右侧肢体活动不灵 2 天」入院。</strong></p>
+<p>颅脑 MRI 示左侧额颞叶、基底节区新发梗死。化验血常规：血小板 50 x 10⁹/L。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>我们需要深入了解患者血小板减少的具体原因，排除其他疾病引发的血小板减少。在选择治疗方案时，应根据患者的具体情况制定个性化的方案。</p>
+<h2>抗板策略：</h2>
+<p>①当血小板计数 &lt; 100×10⁹/L 且 &gt; 60×10⁹/L 时，低出血风险患者，可在严密观察下&lt;u&gt;首选氯吡格雷联合阿司匹林，高出血风险患者可考虑使用单药（氯吡格雷或阿司匹林）治疗。&lt;/u&gt;</p>
+<p>②如血小板计数在 60×10⁹/L～30×10⁹/L 之间，建议使用&lt;u&gt;单药（氯吡格雷或阿司匹林）维持治疗。&lt;/u&gt;</p>
+<p>③ 如血小板计数 &lt; 30×10⁹/L，建议&lt;u&gt;停用所有抗血小板药物。&lt;/u&gt;</p>
+<blockquote>
+<p><strong>09</strong></p>
+</blockquote>
+<h3>慢性肾脏病（CKD）患者</h3>
+<blockquote>
+<p><strong>病例 9. 患者 78 岁男性，因「头晕、行走不稳 2 天」入院。</strong></p>
+<p>颅脑 MRI 示左侧小脑半球斑片状梗死，肾功能示尿素氮 15 mmol/L、肌酐 380 umol/L。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>使用阿司匹林的患者慢性肾功能衰竭风险增加 2.5 倍，且随着累积剂量增加而增高；对于重度肾功能不全的患者，替格瑞洛组的肾脏不良事件发生率明显高于氯吡格雷组；中度及以下肾功能损害患者应用氯吡格雷有明显受益，但是对于重度肾功能损害患者一般不再使用氯吡格雷。</p>
+<h2>抗板策略：</h2>
+<p>①轻中度肾功能不全（eGFR ≥ 60 至 &lt; 90 mL/min），&lt;u&gt;可选择阿司匹林、吲哚布芬、西洛他唑，可连用替格瑞洛或氯吡格雷；&lt;/u&gt;</p>
+<p>②重度肾功能不全（eGFR &lt; 30 mL/min）患者，应避免使用阿司匹林及替格瑞洛，&lt;u&gt;可考虑吲哚布芬或西洛他唑，必要时联合氯吡格雷。&lt;/u&gt;</p>
+<blockquote>
+<p><strong>10</strong></p>
+</blockquote>
+<h3>出血高风险患者</h3>
+<blockquote>
+<p><strong>病例 10. 患者 60 岁女性，因「言语不清、右侧肢体活动不灵 1 天」入院，</strong></p>
+<p>颅脑 MRI 示左侧额颞叶梗死灶，MRA 示左侧大脑中动脉狭窄，化验血红蛋白 86 g/L，粪便潜血 +。</p>
+</blockquote>
+<h3>分析：</h3>
+<p>该患考虑脑梗死合并消化道出血，存在出血高风险。阿司匹林和吲哚布芬都是通过抑制环氧化酶合成而抑制血栓素 A2 生成，从而发挥抑制血小板聚集的作用。</p>
+<p>吲哚布芬对环氧合酶的抑制作用是可逆的，可能导致其消化道不良反应较小，出血风险也较小。吲哚布芬对血小板的抑制时间短，停药后凝血功能恢复快，血小板功能在停药后 24 小时内恢复，出血风险低于阿司匹林。</p>
+<h2>抗板策略：</h2>
+<p>吲哚布芬片首剂量 0.2 g（负荷量），后 0.1 g bid。</p>
+<h3>参考文献</h3>
+<ul>
+<li>[1] 中华医学会神经病学分会, 中华医学会神经病学分会脑血管病学组. 中国急性缺血性卒中诊治指南 2023[J]. 中华神经科杂志, 2024, 57(6): 523-559.</li>
+<li>[2] 刘丽萍, 周宏宇, 段婉莹, 等. 中国脑血管病临床管理指南 (第 2 版)(节选)—— 第 4 章缺血性脑血管病临床管理推荐意见 [J]. 中国卒中杂志,2023,18(8):910-933.</li>
+</ul>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>丁苯酞、依达拉奉、胞磷胆碱...脑保护药物有何区别？这篇讲清了！</title>
+    <link href="https://tangkai.me/posts/2026-08-29-65e6661c-adb3-4b4e-934b-a4a99b2ed135/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-29-65e6661c-adb3-4b4e-934b-a4a99b2ed135/</id>
+    <published>2025-10-25T20:00:00.000Z</published>
+    <updated>2025-10-25T20:00:00.000Z</updated>
+    <summary>太实用了</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：韩国将
+发布时间：2025-10-25 20:00</p>
+<p><img src="./pic/image-9bd2e37103e4cc26.png" alt="" /></p>
+<p>临床常用的神经保护药物，通过不同的作用机制在神经系统疾病的治疗中发挥着重要作用。本文总结了临床常用脑保护药物的适应症、作用机制、疗效等，供大家学习。</p>
+<blockquote>
+<p><strong>01</strong></p>
+</blockquote>
+<h2>丁苯酞</h2>
+<p><strong>机制：</strong></p>
+<p>丁苯酞具有多靶点作用机制。它可以改善脑缺血区的微循环，增加脑血流量，抑制血小板聚集，同时还能减少神经细胞的凋亡，促进线粒体功能的恢复，从而保护神经细胞免受缺血缺氧损伤。</p>
+<p><strong>适应症：</strong></p>
+<p>在国内的多项临床试验中显示出对急性缺血性脑卒中的治疗效果。研究表明，丁苯酞联合常规治疗可显著提高急性缺血性脑卒中患者的临床疗效，在降低 NIHSS 评分、提高 Barthel 指数方面优于单纯常规治疗组。</p>
+<p>丁苯酞的不良反应主要有轻度的转氨酶升高、胃肠道不适等，多在停药后可恢复正常。</p>
+<blockquote>
+<p><strong>02</strong></p>
+</blockquote>
+<h2>依达拉奉</h2>
+<p><strong>机制：</strong></p>
+<p>依达拉奉是一种自由基清除剂。在脑缺血再灌注过程中，会产生大量的活性氧自由基（如超氧阴离子、羟基自由基等），这些自由基会攻击神经细胞膜、蛋白质和核酸，导致细胞损伤和死亡。依达拉奉能够迅速与这些自由基结合，使其失去活性，从而保护神经细胞免受氧化应激损伤。</p>
+<p><strong>适应症：</strong></p>
+<p>多项临床研究表明，依达拉奉在急性脑缺血患者中有一定疗效。一项 2020 年发表在 Stroke 杂志上的研究结果显示，对急性缺血性脑卒中患者在发病后 24 小时内给予依达拉奉治疗，治疗组患者在神经功能缺损评分（如 NIHSS 评分）改善方面优于安慰剂组，且在 90 天的随访中，依达拉奉组患者的改良 Rankin 量表（mRS）评分显示更好的功能恢复结局。</p>
+<p>依达拉奉通常耐受性良好，常见的不良反应包括肝功能异常、皮疹等，但多为轻度且可逆。</p>
+<blockquote>
+<p><strong>03</strong></p>
+</blockquote>
+<h2>依达拉奉右莰醇</h2>
+<p><strong>机制：</strong></p>
+<p>依达拉奉右莰醇是一种复方制剂。依达拉奉可清除自由基，减轻氧化应激损伤；右莰醇能抑制脑缺血时炎症因子释放并调节血脑屏障通透性。适用于改善急性缺血性脑卒中患者的神经功能缺损。</p>
+<p><strong>适应症：</strong></p>
+<p>TASTE 研究显示，对于发病 48 小时内的急性缺血性脑卒中患者，相较依达拉奉组，依达拉奉右莰醇组 90 天功能结局更好，其改良 Rankin 量表评分 ≤ 1 的患者比例显著高于依达拉奉组（67.18% 对 58.97%；优势比 1.42，95% CL 1.12～1.81；P = 0.004）且在女性患者中获益更明显。《中国脑血管病临床管理指南》（第 2 版）基于 TASTE 研究的阳性结果，对依达拉奉右莰醇给出了 Ⅱ a 类推荐，也是目前唯一 Ⅱ a 类推荐的脑保护药物。</p>
+<p>不良反应方面，常见转氨酶升高、胆红素升高等肝功能异常，还可能有皮疹、瘙痒等过敏反应以及恶心、呕吐等胃肠道不适。</p>
+<blockquote>
+<p><strong>04</strong></p>
+</blockquote>
+<h2>胞磷胆碱</h2>
+<p><strong>机制：</strong></p>
+<p>胞磷胆碱是一种内源性化合物，它在神经细胞膜的合成和修复中起着重要作用。它可以促进卵磷脂的合成，而卵磷脂是神经细胞膜的重要组成部分。此外，胞磷胆碱还能增强脑血流，促进神经递质的合成和释放，有助于改善神经细胞的代谢和功能。</p>
+<p><strong>适应症：</strong></p>
+<p>在脑卒中的治疗中，胞磷胆碱被广泛应用。2022 年的一项荟萃分析研究了多个关于胞磷胆碱在急性和亚急性脑卒中治疗的临床试验，结果发现胞磷胆碱可显著提高患者的认知功能恢复，在记忆、注意力等方面有一定改善作用，并且在减少脑卒中后的残疾程度方面也有积极趋势。</p>
+<p>其不良反应相对较少，偶尔可见胃肠道不适等症状。</p>
+<blockquote>
+<p><strong>05</strong></p>
+</blockquote>
+<h2>神经节苷脂</h2>
+<p><strong>机制：</strong></p>
+<p>神经节苷脂能够促进神经细胞的分化、生长和修复。它可以调节神经生长因子的活性，促进神经元轴突的生长和髓鞘的形成，同时还能稳定神经细胞膜结构，减少兴奋性氨基酸等有害物质对神经细胞的损伤。</p>
+<p><strong>适应症：</strong></p>
+<p>一项针对脊髓损伤患者的临床试验中，接受神经节苷脂治疗的患者在运动和感觉功能恢复方面较对照组有一定程度的加快，尤其是在损伤平面以下的感觉恢复方面，表现出更明显的优势。</p>
+<p>不过神经节苷脂的使用也存在一些争议，部分研究报道其可能与格林-巴利综合征等不良事件的发生有一定关联，因此在使用时需要谨慎评估风险和收益。</p>
+<blockquote>
+<p><strong>06</strong></p>
+</blockquote>
+<h2>奥拉西坦</h2>
+<p><strong>机制：</strong></p>
+<p>奥拉西坦可促进磷酰胆碱和磷酰乙醇胺合成，提高大脑中三磷酸腺苷（ATP）与二磷酸腺苷（ADP）的比值，使大脑中蛋白质和核酸的合成增加，从而改善脑代谢功能。</p>
+<p><strong>适应症：</strong></p>
+<p>适用于轻中度血管性痴呆、阿尔茨海默病以及脑外伤等疾病引起的记忆与智能障碍。临床观察发现，奥拉西坦能够改善患者的认知功能，提高患者的记忆力、注意力和定向力等。</p>
+<p>其安全性较高，不良反应较少见，少数患者可能出现轻度的精神兴奋、睡眠紊乱等，一般无需特殊处理。</p>
+<blockquote>
+<p><strong>07</strong></p>
+</blockquote>
+<h2>艾地苯醌</h2>
+<p><strong>机制：</strong></p>
+<p>艾地苯醌能够激活脑线粒体呼吸活性，改善脑缺血的脑能量代谢，改善脑内葡萄糖利用率，使脑内 ATP 产生增加，同时抑制脑线粒体生成过氧化脂质，保护线粒体膜。</p>
+<p><strong>适应症：</strong></p>
+<p>主要用于治疗慢性脑血管病及脑外伤等所引起的脑功能损害，能改善主观症状、语言、焦虑、抑郁、记忆减退、智能下降等精神行为障碍。在长期应用于血管性痴呆患者的研究中，显示出对患者认知功能和日常生活能力有一定的改善作用 。</p>
+<p>不良反应主要有胃肠道反应如恶心、食欲不振等，偶见皮疹、瘙痒等过敏反应，一般较轻微。</p>
+<blockquote>
+<p><strong>08</strong></p>
+</blockquote>
+<h2>镁剂</h2>
+<p><strong>机制：</strong></p>
+<p>镁离子在神经系统中具有重要作用。它可以调节神经细胞膜的兴奋性，通过阻断 NMDA 受体，减少兴奋性氨基酸介导的钙内流，从而减轻神经细胞的兴奋性毒性损伤。同时，镁剂还能影响脑血流，具有一定的血管舒张作用，改善缺血脑组织的血液供应。</p>
+<p><strong>适应症：</strong></p>
+<p>在一些临床试验中对急性脑缺血进行了研究。虽然结果存在一定争议，但有研究显示，在特定人群（如发病早期且血清镁水平较低的急性脑缺血患者）中，适当补充镁剂可能有助于改善神经功能结局，但总体效果相对有限，还需要进一步探索其最佳的使用剂量、时间窗等因素。</p>
+<p>镁剂使用时需注意监测血镁浓度，避免高镁血症导致的呼吸抑制、心脏传导阻滞等不良反应。</p>
+<p>投稿｜jiarufei@dxy.cn</p>
+<h3>参考文献</h3>
+<ul>
+<li>1.Yamaguchi H, Fujimoto S, Okada Y, et al. Efficacy and safety of edaravone in patients with acute ischemic stroke: a randomized, double-blind, placebo-controlled trial. Stroke, 2020, 51(2): 428 - 435.</li>
+<li>2.Xu J, Wang A, Meng X, et al. Edaravone Dexborneol Versus Edaravone Alone for the Treatment of Acute Ischemic Stroke: A Phase III, Randomized, Double-Blind, Comparative Trial[J]. Stroke, 2021, 52(3): 772-780. doi: 10.1161/strokeaha.120.031197.</li>
+<li>3.Smith A, Johnson B, Brown C. The effect of citicoline on cognitive and functional recovery after stroke: a meta-analysis. Journal of Neurology, Neurosurgery, and Psychiatry, 2022, 93(3): 289 - 296.</li>
+<li>4.Liu X, Wang Y, Zhang Z. Gangliosides for spinal cord injury: a randomized controlled trial. Spinal Cord, 2021, 59(2): 167 - 173.</li>
+<li>5.Li Q, Zhang L, Wang S. Efficacy of butylphthalide combined with conventional treatment in patients with acute ischemic stroke. Chinese Medical Journal, 2023, 136(1): 67 - 73.</li>
+</ul>
+<p>6. 李欣, 王晓明. 奥拉西坦对脑代谢功能改善作用的研究进展 [J]. 中国现代药物应用, 2021, 15(3): 189 - 191.</p>
+<p>7. 张辉, 赵艳. 奥拉西坦在认知功能障碍治疗中的应用 [J]. 临床合理用药杂志, 2022, 15(10): 178 - 180.</p>
+<p>8. 刘畅, 孙明. 艾地苯醌改善脑能量代谢的作用机制 [J]. 神经损伤与功能重建, 2020, 15(2): 112 - 114.</p>
+<p>9.Miller J, Davis K, Wilson S. Magnesium supplementation in acute cerebral ischemia: a randomized trial. Critical Care Medicine, 2020, 48(1): 102 - 109.</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>丁苯酞、依达拉奉、胞磷胆碱...脑保护药物有何区别？这篇讲清了！</title>
+    <link href="https://tangkai.me/posts/2026-08-30-da64b197-99d9-4242-a078-27af0b023271/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-da64b197-99d9-4242-a078-27af0b023271/</id>
+    <published>2025-10-25T20:00:00.000Z</published>
+    <updated>2025-10-25T20:00:00.000Z</updated>
+    <summary>太实用了</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：韩国将
+发布时间：2025-10-25 20:00</p>
+<p><img src="./pic/image-9bd2e37103e4cc26.png" alt="" /></p>
+<p>临床常用的神经保护药物，通过不同的作用机制在神经系统疾病的治疗中发挥着重要作用。本文总结了临床常用脑保护药物的适应症、作用机制、疗效等，供大家学习。</p>
+<blockquote>
+<p><strong>01</strong></p>
+</blockquote>
+<h2>丁苯酞</h2>
+<p><strong>机制：</strong></p>
+<p>丁苯酞具有多靶点作用机制。它可以改善脑缺血区的微循环，增加脑血流量，抑制血小板聚集，同时还能减少神经细胞的凋亡，促进线粒体功能的恢复，从而保护神经细胞免受缺血缺氧损伤。</p>
+<p><strong>适应症：</strong></p>
+<p>在国内的多项临床试验中显示出对急性缺血性脑卒中的治疗效果。研究表明，丁苯酞联合常规治疗可显著提高急性缺血性脑卒中患者的临床疗效，在降低 NIHSS 评分、提高 Barthel 指数方面优于单纯常规治疗组。</p>
+<p>丁苯酞的不良反应主要有轻度的转氨酶升高、胃肠道不适等，多在停药后可恢复正常。</p>
+<blockquote>
+<p><strong>02</strong></p>
+</blockquote>
+<h2>依达拉奉</h2>
+<p><strong>机制：</strong></p>
+<p>依达拉奉是一种自由基清除剂。在脑缺血再灌注过程中，会产生大量的活性氧自由基（如超氧阴离子、羟基自由基等），这些自由基会攻击神经细胞膜、蛋白质和核酸，导致细胞损伤和死亡。依达拉奉能够迅速与这些自由基结合，使其失去活性，从而保护神经细胞免受氧化应激损伤。</p>
+<p><strong>适应症：</strong></p>
+<p>多项临床研究表明，依达拉奉在急性脑缺血患者中有一定疗效。一项 2020 年发表在 Stroke 杂志上的研究结果显示，对急性缺血性脑卒中患者在发病后 24 小时内给予依达拉奉治疗，治疗组患者在神经功能缺损评分（如 NIHSS 评分）改善方面优于安慰剂组，且在 90 天的随访中，依达拉奉组患者的改良 Rankin 量表（mRS）评分显示更好的功能恢复结局。</p>
+<p>依达拉奉通常耐受性良好，常见的不良反应包括肝功能异常、皮疹等，但多为轻度且可逆。</p>
+<blockquote>
+<p><strong>03</strong></p>
+</blockquote>
+<h2>依达拉奉右莰醇</h2>
+<p><strong>机制：</strong></p>
+<p>依达拉奉右莰醇是一种复方制剂。依达拉奉可清除自由基，减轻氧化应激损伤；右莰醇能抑制脑缺血时炎症因子释放并调节血脑屏障通透性。适用于改善急性缺血性脑卒中患者的神经功能缺损。</p>
+<p><strong>适应症：</strong></p>
+<p>TASTE 研究显示，对于发病 48 小时内的急性缺血性脑卒中患者，相较依达拉奉组，依达拉奉右莰醇组 90 天功能结局更好，其改良 Rankin 量表评分 ≤ 1 的患者比例显著高于依达拉奉组（67.18% 对 58.97%；优势比 1.42，95% CL 1.12～1.81；P = 0.004）且在女性患者中获益更明显。《中国脑血管病临床管理指南》（第 2 版）基于 TASTE 研究的阳性结果，对依达拉奉右莰醇给出了 Ⅱ a 类推荐，也是目前唯一 Ⅱ a 类推荐的脑保护药物。</p>
+<p>不良反应方面，常见转氨酶升高、胆红素升高等肝功能异常，还可能有皮疹、瘙痒等过敏反应以及恶心、呕吐等胃肠道不适。</p>
+<blockquote>
+<p><strong>04</strong></p>
+</blockquote>
+<h2>胞磷胆碱</h2>
+<p><strong>机制：</strong></p>
+<p>胞磷胆碱是一种内源性化合物，它在神经细胞膜的合成和修复中起着重要作用。它可以促进卵磷脂的合成，而卵磷脂是神经细胞膜的重要组成部分。此外，胞磷胆碱还能增强脑血流，促进神经递质的合成和释放，有助于改善神经细胞的代谢和功能。</p>
+<p><strong>适应症：</strong></p>
+<p>在脑卒中的治疗中，胞磷胆碱被广泛应用。2022 年的一项荟萃分析研究了多个关于胞磷胆碱在急性和亚急性脑卒中治疗的临床试验，结果发现胞磷胆碱可显著提高患者的认知功能恢复，在记忆、注意力等方面有一定改善作用，并且在减少脑卒中后的残疾程度方面也有积极趋势。</p>
+<p>其不良反应相对较少，偶尔可见胃肠道不适等症状。</p>
+<blockquote>
+<p><strong>05</strong></p>
+</blockquote>
+<h2>神经节苷脂</h2>
+<p><strong>机制：</strong></p>
+<p>神经节苷脂能够促进神经细胞的分化、生长和修复。它可以调节神经生长因子的活性，促进神经元轴突的生长和髓鞘的形成，同时还能稳定神经细胞膜结构，减少兴奋性氨基酸等有害物质对神经细胞的损伤。</p>
+<p><strong>适应症：</strong></p>
+<p>一项针对脊髓损伤患者的临床试验中，接受神经节苷脂治疗的患者在运动和感觉功能恢复方面较对照组有一定程度的加快，尤其是在损伤平面以下的感觉恢复方面，表现出更明显的优势。</p>
+<p>不过神经节苷脂的使用也存在一些争议，部分研究报道其可能与格林-巴利综合征等不良事件的发生有一定关联，因此在使用时需要谨慎评估风险和收益。</p>
+<blockquote>
+<p><strong>06</strong></p>
+</blockquote>
+<h2>奥拉西坦</h2>
+<p><strong>机制：</strong></p>
+<p>奥拉西坦可促进磷酰胆碱和磷酰乙醇胺合成，提高大脑中三磷酸腺苷（ATP）与二磷酸腺苷（ADP）的比值，使大脑中蛋白质和核酸的合成增加，从而改善脑代谢功能。</p>
+<p><strong>适应症：</strong></p>
+<p>适用于轻中度血管性痴呆、阿尔茨海默病以及脑外伤等疾病引起的记忆与智能障碍。临床观察发现，奥拉西坦能够改善患者的认知功能，提高患者的记忆力、注意力和定向力等。</p>
+<p>其安全性较高，不良反应较少见，少数患者可能出现轻度的精神兴奋、睡眠紊乱等，一般无需特殊处理。</p>
+<blockquote>
+<p><strong>07</strong></p>
+</blockquote>
+<h2>艾地苯醌</h2>
+<p><strong>机制：</strong></p>
+<p>艾地苯醌能够激活脑线粒体呼吸活性，改善脑缺血的脑能量代谢，改善脑内葡萄糖利用率，使脑内 ATP 产生增加，同时抑制脑线粒体生成过氧化脂质，保护线粒体膜。</p>
+<p><strong>适应症：</strong></p>
+<p>主要用于治疗慢性脑血管病及脑外伤等所引起的脑功能损害，能改善主观症状、语言、焦虑、抑郁、记忆减退、智能下降等精神行为障碍。在长期应用于血管性痴呆患者的研究中，显示出对患者认知功能和日常生活能力有一定的改善作用 。</p>
+<p>不良反应主要有胃肠道反应如恶心、食欲不振等，偶见皮疹、瘙痒等过敏反应，一般较轻微。</p>
+<blockquote>
+<p><strong>08</strong></p>
+</blockquote>
+<h2>镁剂</h2>
+<p><strong>机制：</strong></p>
+<p>镁离子在神经系统中具有重要作用。它可以调节神经细胞膜的兴奋性，通过阻断 NMDA 受体，减少兴奋性氨基酸介导的钙内流，从而减轻神经细胞的兴奋性毒性损伤。同时，镁剂还能影响脑血流，具有一定的血管舒张作用，改善缺血脑组织的血液供应。</p>
+<p><strong>适应症：</strong></p>
+<p>在一些临床试验中对急性脑缺血进行了研究。虽然结果存在一定争议，但有研究显示，在特定人群（如发病早期且血清镁水平较低的急性脑缺血患者）中，适当补充镁剂可能有助于改善神经功能结局，但总体效果相对有限，还需要进一步探索其最佳的使用剂量、时间窗等因素。</p>
+<p>镁剂使用时需注意监测血镁浓度，避免高镁血症导致的呼吸抑制、心脏传导阻滞等不良反应。</p>
+<p>投稿｜jiarufei@dxy.cn</p>
+<h3>参考文献</h3>
+<ul>
+<li>1.Yamaguchi H, Fujimoto S, Okada Y, et al. Efficacy and safety of edaravone in patients with acute ischemic stroke: a randomized, double-blind, placebo-controlled trial. Stroke, 2020, 51(2): 428 - 435.</li>
+<li>2.Xu J, Wang A, Meng X, et al. Edaravone Dexborneol Versus Edaravone Alone for the Treatment of Acute Ischemic Stroke: A Phase III, Randomized, Double-Blind, Comparative Trial[J]. Stroke, 2021, 52(3): 772-780. doi: 10.1161/strokeaha.120.031197.</li>
+<li>3.Smith A, Johnson B, Brown C. The effect of citicoline on cognitive and functional recovery after stroke: a meta-analysis. Journal of Neurology, Neurosurgery, and Psychiatry, 2022, 93(3): 289 - 296.</li>
+<li>4.Liu X, Wang Y, Zhang Z. Gangliosides for spinal cord injury: a randomized controlled trial. Spinal Cord, 2021, 59(2): 167 - 173.</li>
+<li>5.Li Q, Zhang L, Wang S. Efficacy of butylphthalide combined with conventional treatment in patients with acute ischemic stroke. Chinese Medical Journal, 2023, 136(1): 67 - 73.</li>
+</ul>
+<p>6. 李欣, 王晓明. 奥拉西坦对脑代谢功能改善作用的研究进展 [J]. 中国现代药物应用, 2021, 15(3): 189 - 191.</p>
+<p>7. 张辉, 赵艳. 奥拉西坦在认知功能障碍治疗中的应用 [J]. 临床合理用药杂志, 2022, 15(10): 178 - 180.</p>
+<p>8. 刘畅, 孙明. 艾地苯醌改善脑能量代谢的作用机制 [J]. 神经损伤与功能重建, 2020, 15(2): 112 - 114.</p>
+<p>9.Miller J, Davis K, Wilson S. Magnesium supplementation in acute cerebral ischemia: a randomized trial. Critical Care Medicine, 2020, 48(1): 102 - 109.</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>溶栓前紧急降压，除了乌拉地尔，别忘了还有......</title>
+    <link href="https://tangkai.me/posts/2026-09-02-de26802a-a4eb-486c-92a6-0339e7044120/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-02-de26802a-a4eb-486c-92a6-0339e7044120/</id>
+    <published>2025-10-15T20:00:00.000Z</published>
+    <updated>2025-10-15T20:00:00.000Z</updated>
+    <summary>无论白猫黑猫，抓住老鼠就是好猫</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：利奥
+发布时间：2025-10-15 20:00</p>
+<p><img src="./pic/image-9bd2e37103e4cc26.png" alt="" /></p>
+<p>静脉溶栓是时间窗内急性缺血性卒中的重要治疗手段。不过，并不是所有的患者都适合静脉溶栓的，需要进行严格的筛选和评估。</p>
+<blockquote>
+<p><strong>1</strong></p>
+<p><strong>溶栓前血压降到多少？</strong></p>
+</blockquote>
+<p>《中国急性缺血性卒中诊治指南 2023》（下文统称《指南 2023》）明确指出，发病后血压升高如收缩压 ≥ 180 mmHg 或舒张压 ≥ 100 mmHg 是发病 4.5 小时内静脉溶栓的禁忌症。</p>
+<p>急性缺血性卒中发病后，血压升高是非常常见的，可能与应激状态或平素血压控制不佳等多种因素有关。鉴于静脉溶栓是目前急性缺血性卒中最有效的治疗方式之一，为及时实施静脉溶栓，溶栓前必须确保患者血压处于安全水平，《指南 2023》提到对准备溶栓患者，血压应控制在收缩压 &lt; 180 mmHg、舒张压 &lt; 100 mmHg（I 级推荐，B 级证据）。</p>
+<blockquote>
+<p><strong>2</strong></p>
+<p><strong>溶栓前如何降压？</strong></p>
+</blockquote>
+<p>那么，对于准备静脉溶栓且收缩压 ≥ 180 mmHg 或舒张压 ≥ 100 mmHg 的患者，应如何降压呢？</p>
+<p>缺血性卒中急性期是应该避免急剧降压的，《指南 2023》指出对缺血性卒中后 24 小时内血压升高的患者应谨慎处理，且要避免使用引起血压急剧下降的药物。</p>
+<p>因此，<strong>对于静脉溶栓前降压把握 2 个原则：</strong></p>
+<p>（1）降压的目标是为了实施静脉溶栓，保证溶栓的安全性，而不是为了把血压降至「正常范围」；</p>
+<p>（2）由于静脉溶栓应尽早实施，因此应快速降至收缩压 180 mmHg 及舒张压 100 mmHg 以下，同时避免血压急剧下降。</p>
+<p>因此，在临床实践中，我们建议使用平稳安全的静脉降压药物以达标，一般不采用口服降压的方法。不过，需要特别强调的是，在降压前，一定要先排除处理紧张、焦虑、疼痛、憋尿等可能导致血压顽固性升高的客观因素，有时，对这些因素进行简单处理也能实现快速降压的目标。</p>
+<blockquote>
+<p><strong>3</strong></p>
+<p><strong>降压药物如何选？</strong></p>
+</blockquote>
+<p>以下分别列举临床中常用的几种<strong>静脉降压药物</strong>，供大家参考：</p>
+<p>表 1 常用静脉降压药物及其作用机制</p>
+<p><img src="./pic/image-ba98434b926fa7a6.png" alt="" /></p>
+<blockquote>
+<p><strong>乌拉地尔</strong></p>
+</blockquote>
+<p>目前临床上常用的乌拉地尔剂型是 25 mg/5 mL 的。</p>
+<ul>
+<li>
+<p>为快速降压可选择 10～50 mg 乌拉地尔直接缓慢静注，一般 5 分钟内可显示降压效果。</p>
+</li>
+<li>
+<p>如使用泵入的办法：可选生理盐水 40 mL + 乌拉地尔 50 mg 泵入，先 1～2 mg/min（60～120 mL/h）泵入快速降压，达标后改为 9 mg/h（9 mL/h），根据血压水平调整泵速。</p>
+</li>
+<li>
+<p>如果使用静脉点滴的方法，快速降压时，可生理盐水 10 mL + 乌拉地尔 25 mg，先注射 12.5 mg，密切监测血压，维持时使用生理盐水 250 mL + 乌拉地尔 100 mg，15 mL/h，根据血压水平调整泵速。</p>
+</li>
+</ul>
+<p>&lt;u&gt;乌拉地尔&lt;/u&gt;起效迅速，降压同时不影响心率，不影响颅内压，不影响肾血流，严重不良反应少，一般适用于绝大多数急性高血压，&lt;u&gt;可推荐为静脉溶栓前降压的首选&lt;/u&gt;。</p>
+<blockquote>
+<p><strong>尼卡地平</strong></p>
+</blockquote>
+<ul>
+<li>
+<p>本药也作用迅速，可 5 mg 静脉注射，每 5～15 min 加量 2.5 mg/h，最大剂量 15 mg/h；达到目标血压后调整药物剂量以维持血压在合适范围。</p>
+</li>
+<li>
+<p>维持配比时，可参考（公斤体重 × 0.3）mg 稀释至 50 mL，1 mL/h 相当于 0.1 μg/kg/min，以 0.5 μg/kg/min 静脉滴注，根据血压水平逐渐调整速度。不良反应包括心动过速、面部潮红等。颅内压增高患者应谨慎使用。</p>
+</li>
+</ul>
+<blockquote>
+<p><strong>硝普钠</strong></p>
+</blockquote>
+<p>本药可立即起效，降压效果明显。</p>
+<p>静脉滴注起始可 0.5ug/kg/min，逐渐调整，常用剂量是 3 ug/kg/min，极量是 10 ug/kg/min。以 50 kg 体重患者为例，可 50 mL 生理盐水 + 硝普钠 50 mg，1.5 ml/h（0.5 ug/kg/min）起始泵入，一般 9 mL/h 维持。</p>
+<p>本药可以说是降压效果最为明显的，但劣势也很突出。降压过程中增加剂量一定要缓慢（每次增加 0.1～0.3 mL/h），因为过快增加泵速有可能导致血压急骤下降。长期应用硝普钠（不应超过 3 天）有发生严重中毒反应的风险。溶栓前一般不作为推荐使用。</p>
+<blockquote>
+<p><strong>硝酸甘油</strong></p>
+</blockquote>
+<p>本药可作为补充治疗。</p>
+<p>开始剂量为 5 μg/min，可每 3～5 分钟增加 5 μg/min，如在 20 μg/min 时无效可以 10 μg/min 递增，推荐量 50 μg/min，最大剂量 200 μg/min。</p>
+<p>目前临床上常用剂型为 5 mg/1 mL。可选用生理盐水 45 mL + 硝酸甘油 25 mg 配比，以 0.6 mL/h 起逐渐加量，6 mL/h 维持，最大 24 mL/h。静脉点滴可使用 5% 葡萄糖 250 mL + 硝酸甘油 25 mg 以 30 mL/h 静点，最大 120 mL/h。本药禁用于心肌梗死早期、严重贫血、青光眼、颅内压增高患者。</p>
+<blockquote>
+<p><strong>总结</strong></p>
+</blockquote>
+<blockquote>
+<p>总的来说，以上 4 种降压药是目前比较常用的几种静脉降压药，但并非全部，也有一些静脉降压药物也有应用如拉贝洛尔、酚妥拉明、地尔硫卓等。上述提到的用法也不是绝对的，各家中心和大夫可能也有自己的习惯用法。</p>
+<p>无论白猫黑猫，抓住老鼠就是好猫。以笔者个人经验来看，对于静脉溶栓前需要降压的，首选乌拉地尔，大多可使血压达标，如效果不佳联用尼卡地平基本可满足临床要求。硝酸甘油、拉贝洛尔等也可作为联用选择，使用硝普钠应高度谨慎。以上分享为一家之言，经验之谈，希望对大家有所帮助。</p>
+</blockquote>
+<p><strong>专家点评</strong></p>
+<blockquote>
+<p><strong>溶栓前通常需要将血压控制在特定范围，以降低脑出血等严重并发症的风险，一般要求收缩压 &lt; 180 mmHg 且舒张压 &lt; 100 mmHg。</strong></p>
+<p><strong>溶栓前的降压方法：</strong></p>
+<p><strong>1. 优先选择静脉降压药物：因其起效快、剂量易调控，能快速将血压稳定在目标范围；</strong></p>
+<p><strong>2. 避免口服短效降压药：如硝苯地平片（舌下含服），可能导致血压骤降，增加脑灌注不足风险，不推荐用于溶栓前降压。</strong></p>
+<p><strong>3. 动态监测血压：降压过程中需每 5～10 分钟测量一次血压，避免血压降得过低（一般不低于 160/90 mmHg），防止脑血流灌注不足影响溶栓效果。</strong></p>
+</blockquote>
+<p><strong>点评专家</strong></p>
+<p><img src="./pic/image-0e4be78da6c4a72b.png" alt="" /></p>
+<p>参考文献：</p>
+<p>中华医学会神经病学分会，中华医学会神经病学分会脑血管病学组. 中国急性缺血性卒中诊治指南 2023. 中华神经科杂志, 2024, 57(06):523-559.</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>前庭神经炎、梅尼埃病…不同眩晕，激素首选是？何时启用？</title>
+    <link href="https://tangkai.me/posts/2026-09-01-755daa48-4d97-42d1-aefb-50ba11e6467f/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-01-755daa48-4d97-42d1-aefb-50ba11e6467f/</id>
+    <published>2025-09-06T20:00:00.000Z</published>
+    <updated>2025-09-06T20:00:00.000Z</updated>
+    <summary>收藏！</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：张群英
+发布时间：2025-09-06 20:00</p>
+<p><img src="./pic/image-ce7d13449fd795b3.png" alt="" /></p>
+<blockquote>
+<p>临床上一些眩晕相关性疾病与糖皮质激素关系紧密，糖皮质激素凭借其独特作用机制，在眩晕疾病治疗中发挥着重要作用。</p>
+<p>本文将从常见眩晕相关性疾病的糖皮质激素治疗原理、使用方法以及应用注意事项等方面展开详细阐述。</p>
+</blockquote>
+<blockquote>
+<p><strong>1</strong></p>
+</blockquote>
+<h2>激素的应用</h2>
+<h2>一、前庭神经炎（VN）</h2>
+<p>前庭神经炎（VN）是指一侧前庭神经急性损害后出现的以急性、持续性眩晕，伴恶心、呕吐和不稳，易向患侧倾倒等临床症状为表现的一种急性前庭综合征，是临床常见的急性外周性眩晕疾病。</p>
+<p>**病因：**目前该病病因没有完全明确，全身或局部循环障碍和病毒感染是目前的可能病因。迄今为止更多的证据支持前庭神经炎的发病与病毒感染相关。对于急性期前庭神经炎，激素为常规应用药物。</p>
+<h3>■ 糖皮质激素使用机理：</h3>
+<p>糖皮质激素在 VN 中其作用机制与抗炎相关，减轻前庭炎症反应，改善外周前庭功能，还能有效促进中枢系统的代偿。</p>
+<p>在 VN 急性期一般需要给予短时间的、较低剂量的糖皮质激素治疗，可发挥激素强大的抗炎、抗病毒、缓解水肿作用，尽快缓解前庭神经的炎性反应和神经水肿。</p>
+<p>一般为静脉点滴甲强龙 80 mg，连续 5～7 天，如有禁忌症或无法全身使用，可以鼓室注射或耳后注射应用。</p>
+<h3>■ 糖皮质激素使用方法：</h3>
+<p>**地塞米松：**通常鼓室注射地塞米松的剂量为 4～10 mg/次，浓度一般是 5 mg/mL。一般一周注射 2～3 次，一个疗程大约需要注射 3～5 次。</p>
+<p>**甲泼尼龙：**鼓室注射的剂量通常为 20～40 mg/次，常用浓度为 40 mg/mL。注射频率和疗程与地塞米松类似，一般也是一周注射 2～3 次，持续 3～5 次为一个疗程。</p>
+<h2>二、梅尼埃病（MD）</h2>
+<p>梅尼埃病（MD）是以膜迷路积水为基本病理改变，以发作性眩晕、耳聋、耳鸣和耳胀满感为临床特征的特发性内耳疾病。</p>
+<p>**病因：**其病因目前尚未完全明确，近年来多数学者认为由于自身免疫、亚临床型病毒感染引起免疫反应，产生免疫复合物，沉积于血管纹及内淋巴囊等部位，引起离子交换障碍，导致内淋巴积水，也有认为与先天内淋巴囊发育不全有关。</p>
+<h3>■ 糖皮质激素使用机理：</h3>
+<p>糖皮质激素在梅尼埃疾病的治疗过程中可发挥抗炎、改善内淋巴积水状态、稳定血管内皮、调节免疫功能、改善耳蜗血流量、控制眩晕发作等作用，并可更好保留残余的听力，对跌倒发作（继发于梅尼埃病）也有效。</p>
+<p>常用于对药物规律治疗无效、眩晕发作频繁的活动性梅尼埃病者。主要药物是甲泼尼龙、地塞米松等，</p>
+<h3>■ 糖皮质激素使用方法：</h3>
+<p>临床研究表明甲泼尼龙控制眩晕的疗效优于地塞米松。</p>
+<p>**甲强龙：**一般静脉滴注应用为甲强龙 80 mg，连续 5～7 天。如有禁忌症或无法全身使用，可以鼓室注射，通常甲泼尼龙常用浓度为 40 mg/mL。</p>
+<p>**地塞米松：**建议注射 0.5～1 mL/次，1～2 次/周，可连续 4～6 次，可根据眩晕情况按需重复使用，常用浓度为 5 mg/mL。</p>
+<h2>三、突发性耳聋（SD）</h2>
+<p>突发性耳聋（SD）是指 72 小时内突然发生的、原因不明的感音神经性听力损失，至少在相邻的两个频率听力下降 ≥ 20 dBHL。</p>
+<p>**病因：**具体病因尚不明确，有可能是病毒感染导致，患者出现病毒感染以后可能会累及内耳前庭、耳蜗、半规管等重要结构，导致突发性耳聋患者同时伴有头晕的症状；也可能与内耳微循环障碍有关，会导致耳蜗以及前庭缺血缺氧，从而出现突聋伴头晕的症状；也有可能是内耳出现缺氧缺血症状后，椭圆囊内的耳石膜易出现变性及老化，引起耳石易脱落，从而继发耳石症。</p>
+<h3>■ 糖皮质激素使用机理：</h3>
+<p>糖皮质激素在突发性耳聋的发病机制中，具有显著的抗炎作用，能减轻内耳的炎症反应，从而保护内耳的组织结构不受损害。并可以扩张血管，改善内耳的血液循环，帮助缓解因血管痉挛或微循环障碍导致的内耳缺血。</p>
+<p>对于自身免疫性疾病引起的突发性耳聋，激素可以通过抑制免疫反应，减少内耳组织的进一步损害。因此突发性耳聋的治疗虽无统一方案，但目前公认的是将糖皮质激素作为基础用药来治疗。</p>
+<p>糖皮质激素的给药方式分为全身给药及局部给药。全身给药分静脉和口服，可作为突发性耳聋的首选治疗。局部给药常用的是鼓室注射及耳后注射，作为补救性治疗。</p>
+<h3>■ 糖皮质激素使用方法：</h3>
+<p>**口服：**泼尼松每天 1 mg/kg（最大剂量建议为 60 mg），晨起顿服，连用 3 天，如有效可再用 2 天后停药，不必逐渐减量，如无效可以直接停药。</p>
+<p>**静脉注射：**按照泼尼松剂量类比推算，甲泼尼龙 40 mg 或地塞米松 10 mg，疗程同口服激素。</p>
+<p>**鼓室内注射：**可用地塞米松 5 mg 或甲泼尼龙 20 mg，隔日 1 次，连用 4～5 次。耳后注射剂量同鼓室注射。如果患者复诊困难，可以使用复方倍他米松 2 mg（1 mL），耳后注射 1 次即可。</p>
+<blockquote>
+<p><strong>2</strong></p>
+</blockquote>
+<h2>糖皮质激素应用的注意事项</h2>
+<p>**严格掌握适应证：**并非所有眩晕疾病都适合使用激素治疗，应根据疾病的病因、发病机制和临床特点，严格筛选适合激素治疗的患者。</p>
+<p>**个体化治疗：**根据患者的年龄、病情严重程度、基础疾病等因素，制定个体化的激素治疗方案，包括药物选择、剂量、疗程等。</p>
+<p>**密切监测不良反应：**在激素治疗过程中，应密切监测患者的血糖、血压、胃肠道功能等，及时发现并处理不良反应。对于长期应用激素的患者，还应关注骨质疏松等并发症。</p>
+<p>**联合其他治疗：**激素治疗可与其他治疗方法如改善内耳循环的药物、康复训练等联合应用，以提高治疗效果。</p>
+<blockquote>
+<p>糖皮质激素在梅尼埃病、突发性聋伴眩晕、前庭神经炎等多种眩晕疾病的治疗中具有重要作用，通过抗炎、免疫调节等机制，能有效缓解眩晕症状，促进功能恢复。</p>
+<p>但在应用激素时，需严格掌握适应证，制定个体化治疗方案，密切监测不良反应，并合理联合其他治疗方法。</p>
+</blockquote>
+<p>本文仅供医疗卫生等专业人士参考</p>
+<p><img src="./pic/image-9cf61f8a7b202041.png" alt="|45" /></p>
+<h3>参考文献</h3>
+<ul>
+<li>[1] Goudakos JK, Markou KD, Psillas G, Vital V, Tsaligopoulos M.Corticosteroids and vestibular exercises in vestibular neuritis. Single-blind randomized clinical trial. JAMA Otolaryngol Head Neck Surg. 2014 May;140(5):434-40.</li>
+<li>[2] 中华耳鼻咽喉头颈外科杂志编辑委员会，中华医学会耳鼻咽喉头颈外科学分会. 梅尼埃病诊断和治疗指南 (2017). 中华耳鼻咽喉头颈外科 52,167-172(2017).</li>
+<li>[3] 李姝娜等. 鼓室内注射药物治疗梅尼埃病国际专家共识（全译文）[J]. 临床耳鼻咽喉头颈外科杂志,2022,36(7):487-490</li>
+<li>[4] 中国医药教育协会眩晕专业委员会. 积水性内耳病的临床诊疗路径专家建议 [J] . 中华医学杂志, 2024, 104(12) : 924-930.</li>
+<li>[5] 中华耳鼻咽喉头颈外科杂志编辑委员会, 中华医学会耳鼻咽喉头颈外科学分会. 突发性聋诊断和治疗指南 (2015)[J]. 中华耳鼻咽喉头颈外科杂志，2015，50(6)：443-447.</li>
+<li>[6] 杨军, 黄莉, 施俊, 等. 鼓室内注射地塞米松或甲泼尼龙治疗突发性聋的疗效观察 [J]. 临床耳鼻咽喉头颈外科杂志，2010，24(13)：594-597.</li>
+<li>[7] 静媛媛, 王大勇, 樊兆民, 等. 甲泼尼龙与地塞米松对全频下降型突发性聋疗效的多中心对照研究 [J]. 中华耳鼻咽喉头颈外科杂志，2015，50(7)：536-539.</li>
+</ul>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>轻型卒中症状改善，还要溶栓吗？看完这篇不纠结！</title>
+    <link href="https://tangkai.me/posts/2026-08-30-442c8d3c-b92d-4987-9352-d1e62a3d7b1c/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-442c8d3c-b92d-4987-9352-d1e62a3d7b1c/</id>
+    <published>2025-05-13T19:58:00.000Z</published>
+    <updated>2025-05-13T19:58:00.000Z</updated>
+    <summary>答对了吗？</summary>
+    <content type="html"><![CDATA[<p>公众号名称：丁香园神经时间
+作者名称：张群英、段新滨
+发布时间：2025-05-13 19:58</p>
+<p><img src="./pic/image-f0f9c6572382b0bc.png" alt="" /></p>
+<p>主任查房提问啦，关于急性脑梗死静脉溶栓的这些问题，你都能答对吗？</p>
+<blockquote>
+<p><strong>1</strong></p>
+<p><strong>轻型卒中、症状改善，</strong></p>
+<p><strong>还溶栓吗？</strong></p>
+</blockquote>
+<p>对于发病在 3.5～4.5 h，症状迅速改善的轻型非致残性卒中患者，是否考虑静脉溶栓治疗？</p>
+<p>是否需要静脉溶栓需要结合具体病例，临床医师权衡利弊充分评估，不能一概而论。</p>
+<p><strong>&gt;&gt; 指南推荐：</strong></p>
+<p>1）时间窗内的轻型非致残卒中，可在充分评估、沟通的前提下考虑静脉溶栓治疗。</p>
+<p>2）急性轻型非致残性卒中且大血管闭塞的患者，建议阿替普酶静脉溶栓；神经症状迅速改善（仍处于致残状态）的患者，建议阿替普酶静脉溶栓。</p>
+<blockquote>
+<p><strong>2</strong></p>
+<p><strong>卒中患者入院常规测血糖，为什么？</strong></p>
+</blockquote>
+<p>脑卒中患者来到医院以后，为什么要测血糖？是担心病人高血糖吗？</p>
+<p>这是一方面，其实更主要的是担心患者低血糖。</p>
+<p><strong>&gt;&gt; 指南指出：</strong></p>
+<p>溶栓前一定要评估患者有无低血糖。</p>
+<p>对于脑卒中患者，特别是合并糖尿病的患者，血糖是需要尽早测量的，因为有时候低血糖和脑卒中单纯从症状上是难以区分的。</p>
+<blockquote>
+<p><strong>3</strong></p>
+<p><strong>脑梗患者为什么不建议用「含糖液体」？</strong></p>
+</blockquote>
+<p>缺血性脑卒中患者急性期能用含糖液体吗？</p>
+<p><strong>&gt;&gt; 指南指出：</strong></p>
+<p>脑梗死急性期不建议输含糖液体，避免非低血糖患者输含糖液体。</p>
+<p>但是为什么？</p>
+<p><strong>急性脑梗死属于应激事件，可导致应激性血糖升高，血糖升高后可能会使自由基生成增加、血脑屏障破坏增加、细胞外谷氨酸堆积、细胞内酸中毒及血浆纤溶活性的抑制等，所以脑梗死急性期一般不输含糖液体。</strong></p>
+<blockquote>
+<p><strong>4</strong></p>
+<p><strong>影像学无病灶，就排除****脑梗死吗？</strong></p>
+</blockquote>
+<p>如果病人 A 反复发作言语不利和右侧肢体偏瘫的症状，但每次症状都能完全恢复，而且影像学上有责任病灶，可以诊断脑梗死吗？</p>
+<p>如果病人 B 有言语不利和右侧肢体偏瘫的症状，但影像学上没有责任病灶，能诊断脑梗死吗？</p>
+<p><strong>&gt;&gt; 指南指出：</strong></p>
+<p><strong>急性缺血性脑卒中诊断标准之一为：影像学出现责任病灶或症状体征持续 24 小时以上可诊断为急性缺血性脑卒中。</strong></p>
+<p>这句话的解读分两种情况：</p>
+<p>1）如果发作形式类似 TIA 但影像学有责任灶，可诊断急性脑卒中；</p>
+<p>2）如果症状和体征持续 24 小时，但影像学没有责任病灶，依然可以诊断为急性脑卒中，这种情况特别需要排除类卒中的情况。</p>
+<blockquote>
+<p><strong>5</strong></p>
+<p><strong>醒后卒中，时间窗怎么算？</strong></p>
+</blockquote>
+<p>一位病人睡醒后发现卒中，发病时间怎么算呢？</p>
+<p>按照入睡的时间算起。并且一定问病人睡觉过程中有没有醒，比如有没有上厕所，如果那个时间是正常的，那么应该按照那个时间计算。</p>
+<p><strong>&gt;&gt; 指南指出：</strong></p>
+<p>若于睡眠中起病，应以最后表现正常的时间作为起病时间。</p>
+<blockquote>
+<p><strong>6</strong></p>
+<p><strong>rt-PA、尿激酶的适应证有哪些不同？</strong></p>
+</blockquote>
+<p>静脉溶栓药物 rt-PA 和尿激酶有区别吗？</p>
+<p><strong>&gt;&gt; 归纳总结：</strong></p>
+<p><strong>关于静脉溶栓药物 rt-PA 和尿激酶的主要区别有：</strong></p>
+<p>1）适用时间：rt-PA 适用于症状出现 ＜ 3～4.5 h，尿激酶适用于症状出现 ＜ 6 h；如果患者症状超过 4.5 小时我们可以考虑尿激酶。</p>
+<p>2）适用年龄：rt-PA 适用年龄 ≥ 18 岁，而尿激酶适用年龄 18～80 岁；如果患者年龄超过 80 岁，就不主张应用尿激酶溶栓治疗了。</p>
+<p>注：尿激酶仅适用于意识清楚或嗜睡患者，如果患者昏迷，尿激酶是不主张应用的。</p>
+<blockquote>
+<p><strong>7</strong></p>
+<p><strong>静脉溶栓患者，一定要留置导尿吗？</strong></p>
+</blockquote>
+<p>如果病人在静脉溶栓过程中病情平稳，那么该病人可以在溶栓期间留置导尿管和胃管吗？</p>
+<p>如果不是必要，一定要等等再放置，<strong>避免人为操作造成粘膜出血。</strong></p>
+<p><strong>&gt;&gt; 指南指出：</strong></p>
+<p>鼻饲管、导尿管及动脉内测压管在病情允许的情况下应延迟安置。</p>
+<blockquote>
+<p><strong>8</strong></p>
+<p><strong>超时间窗，如何选择用药？</strong></p>
+</blockquote>
+<p>如果病人为非心源性缺血性卒中的急性期，超过了溶栓时间窗，也不适合血管内治疗，怎么办呢？</p>
+<p><strong>&gt;&gt; 指南指出：</strong></p>
+<p><strong>对于不符合静脉溶栓或血管内取栓适应证且无禁忌证的缺血性脑卒中患者，应在发病后尽早给予口服阿司匹林 150～300 mg/d 治疗（I 级推荐，A 级证据）；急性期后可改为预防剂量（50～300 mg/d）。</strong></p>
+<p>根据 <strong>CHANCE 研究</strong>，对于小卒中患者（NIHSS 评分 &lt; 3 分）或者高卒中风险的 TIA（ABCD2 评分 &gt; 4 分）患者，阿司匹林与氯吡格雷联合双抗治疗可降低卒中风险。</p>
+<p>注：文中指南内容来源于《中国急性缺血性脑卒中诊疗指南 2018》《欧洲卒中组织（ESO）急性缺血性卒中静脉溶栓指南 2021》。</p>
+<p><img src="./pic/image-c5469cf2efbd4206.png" alt="" /></p>
+<p>指导老师｜孙彦荣 主任医师</p>
+<p>投稿｜sheldonwangyue@163.com</p>
+<blockquote>
+<p>参考文献：</p>
+<p>[1] Ock S, Jo S, Lee JB, Jin Y, Jeong T, Yoon J, Park B: Comprehensive interpretation of hyperglycemia and hyperosmolality on the clinical outcomes among ischemic stroke patients. The American journal of emergency medicine 2016, 34(12):2343-2350.</p>
+<p>[2] Kim JT, Jahan R, Saver JL, Investigators S: Impact of Glucose on Outcomes in Patients Treated With Mechanical Thrombectomy: A Post Hoc Analysis of the Solitaire Flow Restoration With the Intention for Thrombectomy Study. Stroke 2016, 47(1):120-127.</p>
+<p>[3] 中华医学会神经病学分会，中华医学会神经病学分会脑血管病组；中国急性缺血性脑卒中诊疗指南 2018, 中华神经科杂志.2018, 51（9）；666-682.</p>
+<p>[4] Eivind Berge,William Whiteley, Heinrich Audebert，et.al.European Stroke Organisation (ESO) guidelines on intravenous thrombolysis</p>
+<p>for acute ischaemic stroke.European Stroke Journal 2021, Vol. 6(1) I–LXII.</p>
+</blockquote>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>高清颅脑MR解剖彩色标注【全】</title>
+    <link href="https://tangkai.me/posts/2026-08-30-8bf4112b-ecec-4098-807f-d6502b115f76/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-08-30-8bf4112b-ecec-4098-807f-d6502b115f76/</id>
+    <published>2024-10-01T19:00:00.000Z</published>
+    <updated>2024-10-01T19:00:00.000Z</updated>
+    <summary>高清颅脑MR解剖彩色标注【全】</summary>
+    <content type="html"><![CDATA[<p>公众号名称：ANDs
+作者名称：点击关注👉
+发布时间：2024-10-01 19:00</p>
+<p><img src="./pic/image-bfc70767f47ee2e5.png" alt="" /></p>
+<p><img src="./pic/image-38f71c5c0ebcd50e.png" alt="" /></p>
+<p><img src="./pic/image-bae8f0318551ef26.png" alt="" /></p>
+<p><img src="./pic/image-27a9cbb048ca4909.png" alt="" /></p>
+<p><img src="./pic/image-f11b01b59bcf1b44.png" alt="" /></p>
+<p><img src="./pic/image-304938659d9f4fc2.png" alt="" /></p>
+<p><img src="./pic/image-d48a7467b4621631.png" alt="" /></p>
+<p><img src="./pic/image-cdc26d51fb9a3eab.png" alt="" /></p>
+<p><img src="./pic/image-581a74c851f8b96b.png" alt="" /></p>
+<p><img src="./pic/image-d8be752f5652b933.png" alt="" /></p>
+<p><img src="./pic/image-dccaf9740d558176.png" alt="" /></p>
+<p><img src="./pic/image-bb5b6b2682f6b8e6.png" alt="" /></p>
+<p><img src="./pic/image-507577e7d3b13543.png" alt="" /></p>
+<p><img src="./pic/image-5cbae9fd72eb53e1.png" alt="" /></p>
+<p><img src="./pic/image-08bc766abf9e44e5.png" alt="" /></p>
+<p><img src="./pic/image-930b61195dd6624b.png" alt="" /></p>
+<p><img src="./pic/image-51734efaf303aad9.png" alt="" /></p>
+<p><img src="./pic/image-c4d97bbf4ea7d7a5.png" alt="" /></p>
+<p><img src="./pic/image-defe90f2346bc7ca.png" alt="" /></p>
+<p><img src="./pic/image-5d8c446c7379e3a2.png" alt="" /></p>
+<p><img src="./pic/image-22edaac64f75f798.png" alt="" /></p>
+<p><img src="./pic/image-2243e10fd7719cb6.png" alt="" /></p>
+<p><img src="./pic/image-776b3ac64b1855f1.png" alt="" /></p>
+<p><img src="./pic/image-d44d458ab30a5fcd.png" alt="" /></p>
+<p><img src="./pic/image-b0b887c5cb299ad3.png" alt="" /></p>
+<p><img src="./pic/image-4ae9d8740c8cebba.png" alt="" /></p>
+<p><img src="./pic/image-0314d9e4ab176207.png" alt="" /></p>
+<p><img src="./pic/image-43f035410ed56e75.png" alt="" /></p>
+<p><img src="./pic/image-81c160230763126c.png" alt="" /></p>
+<p><img src="./pic/image-7f5af96546348ad8.png" alt="" /></p>
+<p><img src="./pic/image-5565cc4285f77698.png" alt="" /></p>
+<p><img src="./pic/image-5610b27c262f1a93.png" alt="" /></p>
+<p><img src="./pic/image-d776d244b7b462cd.png" alt="" /></p>
+<p><img src="./pic/image-16f925c80dab712b.png" alt="" /></p>
+<p><img src="./pic/image-5399b161e7dfa9b2.png" alt="" /></p>
+<p><img src="./pic/image-c793b43611015e8f.png" alt="" /></p>
+<p><img src="./pic/image-cfbb7a6edd988c0c.png" alt="" /></p>
+<p><img src="./pic/image-dca35e010714c49c.png" alt="" /></p>
+<p><img src="./pic/image-3a20cfdb9e67398e.png" alt="" /></p>
+<p><img src="./pic/image-1b16f698ef547fd3.png" alt="" /></p>
+<p><img src="./pic/image-636f6587a670bf94.png" alt="" /></p>
+<p><img src="./pic/image-f8196f3755b1d677.png" alt="" /></p>
+<p><img src="./pic/image-60360e07b2fdf904.png" alt="" /></p>
+<p><img src="./pic/image-ffbc3bae541aeabe.png" alt="" /></p>
+<p><img src="./pic/image-1dc314f51d6b7ef8.png" alt="" /></p>
+<p><img src="./pic/image-a3122b4cb9b7f150.png" alt="" /></p>
+<p><img src="./pic/image-c9ea605124772438.png" alt="" /></p>
+<p><img src="./pic/image-aa93aba84614077f.png" alt="" /></p>
+<p><img src="./pic/image-41cbe88bc95a81b8.png" alt="" /></p>
+<p><img src="./pic/image-09392ddda16ae0c7.png" alt="" /></p>
+<p><img src="./pic/image-d30c4f0757a1dc3f.png" alt="" /></p>
+<p><img src="./pic/image-72f9fcae69454634.png" alt="" /></p>
+<p><img src="./pic/image-9c8bc5049b336d76.png" alt="" /></p>
+<p><img src="./pic/image-69d5ba4a47320d84.png" alt="" /></p>
+<p><img src="./pic/image-39e24f818d723477.png" alt="" /></p>
+<p><img src="./pic/image-5ca3653be9907976.png" alt="" /></p>
+<p><img src="./pic/image-d8cd71c70a688a37.png" alt="" /></p>
+<p><img src="./pic/image-343893ee921a3b93.png" alt="" /></p>
+<p><img src="./pic/image-40d98af27df81969.png" alt="" /></p>
+<p><img src="./pic/image-0beb942dc4addab6.png" alt="" /></p>
+<p><img src="./pic/image-c733249f6e4aa46a.png" alt="" /></p>
+<p><img src="./pic/image-00e71f0aa99e1072.png" alt="" /></p>
+<p><img src="./pic/image-9fafd959cb245a50.png" alt="" /></p>
+<p><img src="./pic/image-4f8fab5e55cd0543.png" alt="" /></p>
+<p><img src="./pic/image-0166e193c00f0cbf.png" alt="" /></p>
+<p><img src="./pic/image-7106b331301f8311.png" alt="" /></p>
+<p><img src="./pic/image-a507a0782bafc3bb.png" alt="" /></p>
+<p><img src="./pic/image-adb2df3d139e9e96.png" alt="" /></p>
+<p><img src="./pic/image-d150e489b5ac74eb.png" alt="" /></p>
+<p><img src="./pic/image-b384abc9b70b2f40.png" alt="" /></p>
+<p><img src="./pic/image-eefe4b67aaa292bb.png" alt="" /></p>
+<p><img src="./pic/image-38f3164fcbaaec85.png" alt="" /></p>
+<p><img src="./pic/image-4efcc11cf9e6a874.png" alt="" /></p>
+<p><img src="./pic/image-bbc6210186f22e72.png" alt="" /></p>
+<p><img src="./pic/image-cd6e6730517a42f1.png" alt="" /></p>
+<p><img src="./pic/image-9fd140e026a728ec.png" alt="" /></p>
+<p><img src="./pic/image-ed4f0e0974bb67b4.png" alt="" /></p>
+<p><img src="./pic/image-6e5c073892c12fb1.png" alt="" /></p>
+<p><img src="./pic/image-606f117bb3270d63.png" alt="" /></p>
+<p><img src="./pic/image-8269816bb9541be2.png" alt="" /></p>
+<p><img src="./pic/image-1868a07973f69468.png" alt="" /></p>
+<p><img src="./pic/image-827f12c0a6e98c2c.png" alt="" /></p>
+<p><img src="./pic/image-5a5893bb3ff8cd78.png" alt="" /></p>
+<p><img src="./pic/image-aa79491aefd06f8b.png" alt="" /></p>
+<p><img src="./pic/image-c4d2ac45ae18deaf.png" alt="" /></p>
+<p><img src="./pic/image-83fff408c0535c91.png" alt="" /></p>
+<p><img src="./pic/image-e0cddd4a957ad720.png" alt="" /></p>
+<p><img src="./pic/image-4142ae5011ccc434.png" alt="" /></p>
+<p><img src="./pic/image-01579cbf7b44853a.png" alt="" /></p>
+<p><img src="./pic/image-7d389f55ccda2e84.png" alt="" /></p>
+<p><img src="./pic/image-65c12498160b6826.png" alt="" /></p>
+<p><img src="./pic/image-6f551189e862722d.png" alt="" /></p>
+<p><img src="./pic/image-1500777ef8c01c5d.png" alt="" /></p>
+<p><img src="./pic/image-e7a307a1fd498344.png" alt="" /></p>
+<p><img src="./pic/image-9f1d4183d8b4131f.png" alt="" /></p>
+<p><img src="./pic/image-43af46b490f4d568.png" alt="" /></p>
+<p><img src="./pic/image-4f686e13c4138678.png" alt="" /></p>
+<p><img src="./pic/image-1a1aa5b1b7dd5fc9.png" alt="" /></p>
+<p><img src="./pic/image-ff37c74c6670527d.png" alt="" /></p>
+<p><img src="./pic/image-304d6d57e1a711eb.png" alt="" /></p>
+<p><img src="./pic/image-a426bcd76c40d553.png" alt="" /></p>
+<p><img src="./pic/image-e18a0f26c5cb4d01.png" alt="" /></p>
+<p><img src="./pic/image-8eb97ce193ac5bd2.png" alt="" /></p>
+<p><img src="./pic/image-8e950d1717aa465b.png" alt="" /></p>
+<p><img src="./pic/image-f05a21e2c777c2a9.png" alt="" /></p>
+<p><img src="./pic/image-0f181c4f5a986e5a.png" alt="" /></p>
+<p><img src="./pic/image-37cd6f0722234d75.png" alt="" /></p>
+<p><img src="./pic/image-6fa90af545701836.png" alt="" /></p>
+<p><img src="./pic/image-84757f174fa09183.png" alt="" /></p>
+<p><img src="./pic/image-0b29e0b7adbce26a.png" alt="" /></p>
+<p><img src="./pic/image-888495040daed8f6.png" alt="" /></p>
+<p><img src="./pic/image-ccba37809f53b815.png" alt="" /></p>
+<p>参考资料 | 神经病医学网</p>
+<p><img src="./pic/image-10abf5e515068d9d.png" alt="" /></p>
+<hr />
+<p>点击关注👉 ANDs</p>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>耳石症治疗：8种复位手法，让逃跑的“石头”快速归位！（图文+教学视频详解）</title>
+    <link href="https://tangkai.me/posts/2026-09-03-9a98f5b9-98be-4502-855b-4e945c1fbebb/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-03-9a98f5b9-98be-4502-855b-4e945c1fbebb/</id>
+    <published>2022-10-20T19:40:00.000Z</published>
+    <updated>2022-10-20T19:40:00.000Z</updated>
+    <summary>耳石症8大复位手法详解（图文+教学视频），快快收藏！</summary>
+    <content type="html"><![CDATA[<p>公众号名称：神经时讯
+作者名称：神经时讯
+发布时间：2022-10-20 19:40
+原文链接：<a href="https://www.nejm.org/doi/full/10.1056/NEJMoa2206317">https://www.nejm.org/doi/full/10.1056/NEJMoa2206317</a></p>
+<p>良性阵发性位置性眩晕（BPPV)，俗称“耳石症”，是引起眩晕的常见疾病之一，占前庭性眩晕患者的20%～30%，男女比例为1:1.5～1:2.0，<strong>通常40岁以后高发，且发病率随年龄增长呈逐渐上升趋势</strong>**。**</p>
+<p>本文通过<strong>图文+教学视频</strong>的形式，就耳石症定位诊断、常用复位手法、患者复位治疗后注意事项等作一综述，供各位同道参考。</p>
+<p><strong>如何****定位逃跑的“石头”？</strong></p>
+<p><strong>通过Dix-hallpike试验来明确诊断：</strong></p>
+<p><strong>0****1</strong></p>
+<blockquote>
+<p>1.首先坐在床上适当位置，头向右转45°。</p>
+<p>2.躺下使头悬空，保持低于床边20°～30°不动。此时如果感到明显的眩晕，并且出现上跳，逆时针扭转的眼震，持续＜1 min，则试验结果为阳性，说明右侧的后半规管内有耳石。</p>
+<p>3.类似可以进行左侧后半规管的检查。</p>
+<p><img src="./pic/image-414f9d06a3fe31ac.png" alt="" /></p>
+</blockquote>
+<p><strong>如果平时睡觉翻身的时候容易出现眩晕</strong>，则可进行Roll-test试验。</p>
+<p><strong>水平半规管耳石症的Roll-test：</strong></p>
+<p><strong>0****2</strong></p>
+<blockquote>
+<p>1.平躺在床上，抬高30°。</p>
+<p>2.头向一侧转90°，保持不动，出现明显眩晕伴有向地性或者离地性眼震时为阳性。将上述步骤左右各进行一次，对比转向哪一边诱发的眩晕感更严重、眼震更强烈，推测是嵴顶耳石症还是管内耳石症。</p>
+<p><img src="./pic/image-41d225e4fef712ad.png" alt="" /></p>
+</blockquote>
+<p><strong>BPPV诊断性试验眼震结果总结</strong></p>
+<p>根据受累部位，BPPV分为前半规管型（<strong>A-BPPV</strong>）、后半规管型（<strong>P-BPPV</strong>）和水平半规管型（<strong>H-BPPV</strong>）。</p>
+<p><strong>垂直半规管（前、后半规管）受累</strong></p>
+<p><img src="./pic/image-eccfd6d65a8e9224.png" alt="" /></p>
+<p>注：R：右侧，L：左侧</p>
+<h2>水平半规管受累</h2>
+<p><img src="./pic/image-3683fa2d32db5575.png" alt="" /></p>
+<p><strong>如何复位逃跑的“石头”？</strong></p>
+<p>目前针对耳石症最有效的方法是<strong>耳石复位治疗</strong>，将脱落的耳石颗粒迅速复位到原位（椭圆囊或球囊内），90%以上的患者通过简单的耳石复位即可快速缓解眩晕症状。</p>
+<p><img src="./pic/image-e3b189e27f622944.png" alt="" /></p>
+<blockquote>
+<p>📹 此处为视频内容（vid: wxv_1065670897719279620）（上图为封面），未能直接提取，请前往原文查看：<a href="https://mp.weixin.qq.com/s?__biz=MzU1MTQzMjI1OA==&amp;mid=2247594221&amp;idx=1&amp;sn=06698162729abcf85e7db1163e3b1103&amp;chksm=fa70a2315439585b62ee3114146fafc76560e1769cae848fba7e16ea7282fc2db6074efaa5ac&amp;mpshare=1&amp;scene=1&amp;srcid=0903Uh8l5LAqc6UMFdpbQtMM&amp;sharer_shareinfo=347aad7d4a872de86dd8751a3cfe5fca&amp;sharer_shareinfo_first=347aad7d4a872de86dd8751a3cfe5fca#rd">在公众号原文中观看</a></p>
+</blockquote>
+<p>视频来源：网易健康</p>
+<p><strong>针对受累的半规管不同，选用的复位手法也不同。</strong></p>
+<p><img src="./pic/image-26e57ba6fd46b982.png" alt="|32" /></p>
+<p>1</p>
+<p><strong>后半规管耳石症 Epley复位法</strong></p>
+<p><img src="./pic/image-7efdd601930900fb.png" alt="|166" /></p>
+<p>1.患者平坐于检查床，头部向患侧旋转45°；</p>
+<blockquote>
+<p><img src="./pic/image-94b04c6490f25a3f.png" alt="|166" /></p>
+<p>2.快速下垂，下垂时头部低于平面30°，保持30秒；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-a18000c2dc114875.png" alt="|166" /></p>
+<p>3.头部向健侧旋转90°，保持30秒，身体不动只转头；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-efbccd52b34e3630.png" alt="|166" /></p>
+<p>4.身体向健侧转90°，保持30秒，头部和身体的角度不变；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-fbf99957628c9b0f.png" alt="|166" /></p>
+<p>5.将患者扶起。</p>
+</blockquote>
+<p><img src="./pic/image-26e57ba6fd46b982.png" alt="|32" /></p>
+<p>2</p>
+<p><strong>后半规管耳石症 Semont复位法</strong></p>
+<p><img src="./pic/image-faa985fcb27e351b.png" alt="|166" /></p>
+<p>1.患者平坐于检查床，头部向健侧旋转45°，然后快速向患侧侧躺，让患侧的后枕部着床，保持30秒；</p>
+<blockquote>
+<p><img src="./pic/image-027c8b16e2315b85.png" alt="|166" /></p>
+<p>2.快速地让患者从患侧转向健侧，同时使头和身体的角度保持固定；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-bc8e275917288175.png" alt="|166" /></p>
+<p>3.健侧的前额着床，倾斜角度为45°。</p>
+</blockquote>
+<p>**注意：**当患者回到直立位时，可能会突然特别头晕，要进行保护，防止跌倒。</p>
+<p><img src="./pic/image-26e57ba6fd46b982.png" alt="|32" /></p>
+<p>3</p>
+<p><strong>水平半规管管石症 Barbecue复位法</strong></p>
+<p><img src="./pic/image-7152ebb003f26de1.png" alt="|166" /></p>
+<p>1.患者平躺于检查床，然后从患侧开始旋转，每次旋转90°；</p>
+<blockquote>
+<p><img src="./pic/image-a3bc76b0589f6eac.png" alt="|166" /></p>
+<p>2.旋转的动作可以连续做，也可以快速做，根据患者的情况，可做多个周期；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-a104affa587039b1.png" alt="|166" /></p>
+<p>3.将患者扶起。</p>
+</blockquote>
+<p><img src="./pic/image-26e57ba6fd46b982.png" alt="|32" /></p>
+<p>4</p>
+<p>**</p>
+<p>水平半规管管石症 改良的Gufoni复位法</p>
+<p>**</p>
+<p><img src="./pic/image-a90b2a8fe58cc2db.png" alt="|166" /></p>
+<p>1.患者向患耳侧侧躺，保持30秒；</p>
+<blockquote>
+<p><img src="./pic/image-6de2f1c312df81fb.png" alt="|166" /></p>
+<p>2.头和身体保持固定的位置，头部向健侧转45°，保持30秒；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-850506ad73507239.png" alt="|166" /></p>
+<p>3.将患者扶起。</p>
+</blockquote>
+<p><img src="./pic/image-26e57ba6fd46b982.png" alt="|32" /></p>
+<p>5</p>
+<p><strong>水平半规管嵴帽结石症 Gufoni复位法</strong></p>
+<p><img src="./pic/image-a90b2a8fe58cc2db.png" alt="|166" /></p>
+<p>1.患者向患耳侧侧躺，保持30秒；</p>
+<blockquote>
+<p><img src="./pic/image-6de2f1c312df81fb.png" alt="|166" /></p>
+<p>2.头和身体保持固定的位置，头部向健侧转45°，保持30秒；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-850506ad73507239.png" alt="|166" /></p>
+<p>3.将患者扶起。</p>
+</blockquote>
+<p><img src="./pic/image-26e57ba6fd46b982.png" alt="|32" /></p>
+<p>6</p>
+<p><strong>上半规管耳石症 反Semont复位法</strong></p>
+<p><img src="./pic/image-eff41afc94345f12.png" alt="|166" /></p>
+<p>1.患者平坐于检查床，头部向患侧旋转45°；</p>
+<blockquote>
+<p><img src="./pic/image-03b2d7e1ecb995e5.png" alt="|166" /></p>
+<p>2.向患侧侧躺，前额着床，保持30秒；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-140547ed696b5b95.png" alt="|166" /></p>
+<p>3.快速倒向健侧，健侧的后枕部着床，保持30秒；</p>
+</blockquote>
+<blockquote>
+<p><img src="./pic/image-dbdb8a8302161b84.png" alt="|166" /></p>
+<p>4.将患者扶起。</p>
+</blockquote>
+<p><img src="./pic/image-26e57ba6fd46b982.png" alt="|32" /></p>
+<p>7</p>
+<p><strong>前庭型耳石症</strong>是指耳石没有进入半规管，而是在壶腹嵴上附着。其特点是当患者做仰头或哈腰的动作时，会突然晕一下。</p>
+<p><strong>前庭型耳石症“叩首”法和“急刹车”法</strong></p>
+<p><img src="./pic/image-6c8d286f57e899b8.png" alt="|166" /></p>
+<p>**“叩首”复位法：**患者站在检查床的一侧，扶着床做磕头的动作，头部快速冲，快速起。同时要注意患者的颈椎情况，若颈椎不好，幅度可以小一些。</p>
+<blockquote>
+<p><img src="./pic/image-9cb1d2450f9262e2.png" alt="|166" /></p>
+<p>**“急刹车”复位法：**患者做仰头和哈腰的动作，在哈腰的时候保护着患者的双肩，让其头部向前有一个冲的动作。</p>
+</blockquote>
+<p><strong>如何判断自己是不是得了耳石症？</strong></p>
+<p><strong>耳石症的特征：</strong></p>
+<blockquote>
+<p>1.当头位发生变化时，<strong>突然出现短暂的眩晕，通常不超过1 min</strong>。</p>
+<p>2.眩晕时多感觉天旋地转，<strong>可****伴有眼球震颤、恶心、呕吐症状</strong>，但不会伴有耳鸣、耳闷和听力下降等症状。</p>
+<p>3.在保持头位不变后，不适的症状会很快消失，但是再次<strong>变换头位，该症状会再次出现</strong>。</p>
+<p>4.<strong>发作后身体通常无任何不适</strong>，或有头晕、头痛和轻度不平衡感。</p>
+</blockquote>
+<p><strong>耳石症自我诊断：</strong></p>
+<p>通过观察眼震能够精准地判断是不是患有耳石症。除了医院专业的设备可以测出，在家也能自己测试。</p>
+<p><img src="./pic/image-f2dbc4fc59a6d0bf.png" alt="" /></p>
+<blockquote>
+<p>📹 此处为视频内容（上图为封面），未能直接提取，请前往原文查看：<a href="https://mp.weixin.qq.com/s?__biz=MzU1MTQzMjI1OA==&amp;mid=2247594221&amp;idx=1&amp;sn=06698162729abcf85e7db1163e3b1103&amp;chksm=fa70a2315439585b62ee3114146fafc76560e1769cae848fba7e16ea7282fc2db6074efaa5ac&amp;mpshare=1&amp;scene=1&amp;srcid=0903Uh8l5LAqc6UMFdpbQtMM&amp;sharer_shareinfo=347aad7d4a872de86dd8751a3cfe5fca&amp;sharer_shareinfo_first=347aad7d4a872de86dd8751a3cfe5fca#rd">在公众号原文中观看</a></p>
+</blockquote>
+<p>视频来源：CCTV健康之路</p>
+<p>当然，**上述只能作为初步判断依据，**还是要去正规医院经过专业医生检查才能确诊。</p>
+<p>**哪些耳石症患者不适合手法复位？
+**</p>
+<blockquote>
+<p>**1.血压特别高的患者：**高血压本身就存在心脑血管病风险，尤其会造成脑出血，一旦复位诱发脑出血，存在医疗纠纷隐患。</p>
+<p>**2.心肺功能比较差，体质特别虚弱的患者：**这部分患者本身身体基础较差，不建议予以复位。</p>
+<p>**3.严重颈椎病的患者：**第一种情况，患者颈椎病严重无法完成复位动作；第二种情况，患者如果存在颈椎不稳，容易出现压迫脊髓的情况，严重时可致命。</p>
+</blockquote>
+<p><strong>患者行手法复位治疗后注意事项</strong></p>
+<blockquote>
+<p><strong>1.<strong>复位治疗后</strong>至少静坐30 min</strong>。由于复位治疗时耳石移位，有的患者当时没有什么反应，但随后也许会出现较为剧烈的眩晕反应，个别患者可能还会有呕吐的症状。</p>
+<p>**2.**<strong>避免剧烈运动</strong>。耳石复位后应避免剧烈的甩头和跳跃动作。建议患者尽量避免登高运动，过山车、海盗船等游乐项目也建议不要参与，避免耳石症复发。</p>
+<p>**3.**<strong>避免过度劳累</strong>。耳石复位后应注意休息，避免熬夜和过度劳累。</p>
+<p>**4.合理饮食。**注意饮食清淡，多食用新鲜水果、蔬菜，避免食用辛辣等刺激性食物，注意烟酒适度。</p>
+<p><strong>5.<strong>耳石复位后</strong>遵医嘱定期复诊</strong>。</p>
+</blockquote>
+<p>审校 | 董晓慧</p>
+<p><img src="./pic/image-51ddadc37d00a3b0.png" alt="" /></p>
+<p>欢迎分享到朋友圈，一起学习成长！</p>
+<p>↓ ↓ 点击下方关注我们 ↓ ↓</p>
+<blockquote>
+<p><strong>点击“阅读原文”，查看更多学术视频</strong></p>
+</blockquote>
+]]></content>
+    <author><name>Shirone</name></author>
+    <category term="微信公众号"/>
+  </entry>
+</feed>
