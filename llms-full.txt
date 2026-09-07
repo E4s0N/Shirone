@@ -1442,6 +1442,7 @@ __LLMS_CODE_BLOCK_2__
 
 - **URL**: https://tangkai.me/posts/2026-09-06-e51b2fcd-96c2-46f3-a6af-2ba958a2eb8d/
 - **Published**: 2026-09-06
+- **Category**: 微信公众号
 - **Tags**: ARTICLE
 
 [卒中进展加重，如何处理？这 5 个方面要重点关注](https://mp.weixin.qq.com/s?__biz=Mzg4NjkzMzM1Nw==&mid=2247595419&idx=1&sn=fc4ae1f0980c5b5786434953771713b0&chksm=ce721705662d4875227f654680939a8131f038199d0532d8f2deb8093633cb3d1249c4aaae42&mpshare=1&scene=1&srcid=0906Wx6ZTXUQgvVoWepUYdb0&sharer_shareinfo=6186c828a31814da556a3fedf879cb59&sharer_shareinfo_first=6186c828a31814da556a3fedf879cb59#rd)
@@ -1456,6 +1457,7 @@ __LLMS_CODE_BLOCK_2__
 
 - **URL**: https://tangkai.me/posts/2026-09-06-a34ce3f8-8270-429d-84be-96361821b010/
 - **Published**: 2026-09-06
+- **Category**: 微信公众号
 - **Tags**: ARTICLE
 
 [发病 > 4.5h，如何识别缺血半暗带？影像如何指导「超窗」溶栓？](https://mp.weixin.qq.com/s?__biz=Mzg4NjkzMzM1Nw==&mid=2247593789&idx=1&sn=846d1525a693db1428a7711e10c24e56&chksm=ce37e0bd32f7914b096f133aa3a36cba6230db2ec51ed4e87538d55c1396b3f7133a8edb95ae&mpshare=1&scene=1&srcid=09064ZHncxPnFRcyLlowE7o8&sharer_shareinfo=bddb81771d9963b02fe69958d8636d4b&sharer_shareinfo_first=bddb81771d9963b02fe69958d8636d4b#rd)
