@@ -1,6 +1,6 @@
 # Tangkai's Blog - Full Content Archive
 
-> Generated on 2026-09-06. Contains full text of all public articles for LLM ingestion.
+> Generated on 2026-09-07. Contains full text of all public articles for LLM ingestion.
 
 ---
 
@@ -1326,7 +1326,7 @@ __LLMS_CODE_BLOCK_2__
 
 ---
 
-## 同步助手_20260906_乌拉地尔的用法用量_链接
+## 乌拉地尔的用法用量
 
 - **URL**: https://tangkai.me/posts/2026-09-06-3e8df6be-1931-4b52-8fe5-9f62186985ee/
 - **Published**: 2026-09-06
@@ -1438,7 +1438,7 @@ __LLMS_CODE_BLOCK_2__
 
 ---
 
-## 同步助手_20260906_卒中进展加重，如何处理？这 5 个方面要重点关注_链接
+## 卒中进展加重，如何处理？这 5 个方面要重点关注
 
 - **URL**: https://tangkai.me/posts/2026-09-06-e51b2fcd-96c2-46f3-a6af-2ba958a2eb8d/
 - **Published**: 2026-09-06
@@ -1452,7 +1452,7 @@ __LLMS_CODE_BLOCK_2__
 
 ---
 
-## 同步助手_20260906_发病 > 4.5h，如何识别缺血半暗带？影像如何指导「超窗」_链接
+## 发病 > 4.5h，如何识别缺血半暗带？影像如何指导「超窗」
 
 - **URL**: https://tangkai.me/posts/2026-09-06-a34ce3f8-8270-429d-84be-96361821b010/
 - **Published**: 2026-09-06
