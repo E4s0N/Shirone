@@ -95,7 +95,7 @@ jobs:
             header_common="$header_common
           站点：$SITE_URL"
           fi
-          separator="━━━━━━━━━━━━━━━━"
+          separator="━━━━━━━━━━━━━"
           if [ "$BUILD_OUTCOME" = "success" ] && [ "$PUBLISH_OUTCOME" = "success" ]; then
             printf '%s\n' "✅ 博客部署成功" "$separator" "$header_common" "$separator" "gh-pages 已更新，EdgeOne 将自动同步最新内容" > wecom-message.md
           else
