@@ -13,6 +13,8 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [欢迎使用 Shirone 内容仓库](https://tangkai.me/posts/guide/): 这是一篇示例文章，展示了 Shirone 博客主题的排版样式与元数据配置。
 - [自建share微博客户端激活](https://tangkai.me/posts/share-activate/): 自建share微博客户端激活
 - [整理照片心得](https://tangkai.me/posts/photo-manage-experience/): 使用python脚本整理照片，按照月份分类整理
+- [青年卒中如何查找病因？需要完善哪些检查？](https://tangkai.me/posts/2026-09-07-1179a457-6e5e-4347-8498-7a624d4d5204/)
+- [脑出血定位总搞混？这篇帮你理清](https://tangkai.me/posts/2026-09-07-3c38d956-17c9-4836-a8bb-a2cb7292e0e4/)
 - [神经病理性疼痛怎么开药？先用什么、多久加量、何时换药？](https://tangkai.me/posts/2026-09-07-36cfdc25-d4fe-4314-be44-d70498234870/)
 - [同是脑栓塞，病因可能完全不同：6 类栓子如何从影像中识别？](https://tangkai.me/posts/2026-09-07-7d79d64e-1425-421f-be76-59f33f515417/)
 - [乌拉地尔的用法用量](https://tangkai.me/posts/2026-09-06-3e8df6be-1931-4b52-8fe5-9f62186985ee/)
