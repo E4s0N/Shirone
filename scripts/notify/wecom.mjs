@@ -1,11 +1,16 @@
 #!/usr/bin/env node
-// 企业微信应用消息通知脚本（供 GitHub Actions 与本地调用，零依赖）：
+// 企业微信消息通知脚本（供 GitHub Actions 与本地调用，零依赖）：
 //   node scripts/notify/wecom.mjs [消息文件]
 // 消息内容依次取自：命令行传入的文件 > stdin > WECOM_MESSAGE 环境变量。
-// 配置（环境变量，对应 GitHub Actions secrets）：
-//   WECOM_CORP_ID / WECOM_AGENT_ID / WECOM_SECRET  必填
-//   WECOM_TOUSER   可选，接收人，默认 @all（如 "user1|user2"）
-//   WECOM_API_BASE 可选，仅本地测试用，默认官方 API 地址
+//
+// 两种发送通道（设置了 WECOM_WEBHOOK_URL 时优先走群机器人）：
+//   1. 群机器人 webhook：只配 WECOM_WEBHOOK_URL（群聊添加机器人后的 webhook 地址）。
+//      无 IP 白名单限制，适合 GitHub Actions 等 IP 不固定的 CI 环境。
+//   2. 自建应用 API：配 WECOM_CORP_ID / WECOM_AGENT_ID / WECOM_SECRET，
+//      可选 WECOM_TOUSER（默认 @all）。受企业微信「可信 IP」白名单限制，
+//      仅适合来源 IP 固定且已加入白名单的环境（WECOM_API_BASE 可指向自建
+//      反向代理以获得固定出口 IP）。
+//
 // 消息为企业微信 markdown 子集（#、>、**、[]()、<font>）；超过 4096 字节上限时自动截断。
 import { readFileSync } from "node:fs";
 
@@ -69,6 +74,25 @@ async function getAccessToken(apiBase) {
 	return data.access_token;
 }
 
+// 群机器人 webhook：key 直接在 URL 里，无 IP 限制，无 token 流程
+async function sendViaWebhook(webhookUrl, content) {
+	const response = await fetch(webhookUrl, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({
+			msgtype: "markdown",
+			markdown: { content },
+		}),
+		signal: AbortSignal.timeout(30_000),
+	});
+	const data = await response.json();
+	if (data.errcode !== 0) {
+		throw new Error(
+			`发送消息失败: errcode=${data.errcode} errmsg=${data.errmsg}`,
+		);
+	}
+}
+
 async function sendMarkdown(apiBase, agentId, content) {
 	const token = await getAccessToken(apiBase);
 	const response = await fetch(
@@ -104,27 +128,39 @@ async function main() {
 		process.exitCode = 1;
 		return;
 	}
-	const missing = ["WECOM_CORP_ID", "WECOM_AGENT_ID", "WECOM_SECRET"].filter(
-		(name) => !process.env[name],
-	);
-	if (missing.length) {
-		console.error(`[wecom-notify] 缺少配置：${missing.join(", ")}，跳过发送`);
-		process.exitCode = 1;
-		return;
-	}
-	const agentId = Number(process.env.WECOM_AGENT_ID);
-	if (!Number.isInteger(agentId)) {
-		console.error("[wecom-notify] WECOM_AGENT_ID 必须是整数");
-		process.exitCode = 1;
-		return;
-	}
-	const apiBase = (process.env.WECOM_API_BASE || DEFAULT_API_BASE).replace(
-		/\/+$/,
-		"",
-	);
+	const payload = truncateToWeComLimit(content);
+	const channel = process.env.WECOM_WEBHOOK_URL ? "webhook" : "app";
 	try {
-		await sendMarkdown(apiBase, agentId, truncateToWeComLimit(content));
-		console.log(`[wecom-notify] 消息已发送（${byteLength(content)} 字节）`);
+		if (channel === "webhook") {
+			await sendViaWebhook(process.env.WECOM_WEBHOOK_URL, payload);
+		} else {
+			const missing = [
+				"WECOM_CORP_ID",
+				"WECOM_AGENT_ID",
+				"WECOM_SECRET",
+			].filter((name) => !process.env[name]);
+			if (missing.length) {
+				console.error(
+					`[wecom-notify] 缺少配置：${missing.join(", ")}（或配置 WECOM_WEBHOOK_URL），跳过发送`,
+				);
+				process.exitCode = 1;
+				return;
+			}
+			const agentId = Number(process.env.WECOM_AGENT_ID);
+			if (!Number.isInteger(agentId)) {
+				console.error("[wecom-notify] WECOM_AGENT_ID 必须是整数");
+				process.exitCode = 1;
+				return;
+			}
+			const apiBase = (process.env.WECOM_API_BASE || DEFAULT_API_BASE).replace(
+				/\/+$/,
+				"",
+			);
+			await sendMarkdown(apiBase, agentId, payload);
+		}
+		console.log(
+			`[wecom-notify] 消息已发送（通道 ${channel}，${byteLength(content)} 字节）`,
+		);
 	} catch (error) {
 		console.error(
 			`[wecom-notify] ${error instanceof Error ? error.message : String(error)}`,
