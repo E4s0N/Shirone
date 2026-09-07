@@ -1,37 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Tangkai&apos;s Blog</title><description>A blog about Tangkai</description><link>https://tangkai.me/</link><language>zh_CN</language><item><title>欢迎使用 Shirone 内容仓库</title><link>https://tangkai.me/posts/guide/</link><guid isPermaLink="true">https://tangkai.me/posts/guide/</guid><description>这是一篇示例文章，展示了 Shirone 博客主题的排版样式与元数据配置。</description><pubDate>Thu, 27 Aug 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h2&gt;欢迎使用&lt;/h2&gt;
-&lt;p&gt;这是一篇在内容分离架构下的示例文章。本篇文章保存在独立的内容仓库中，与主题代码完全解耦。&lt;/p&gt;
-&lt;h3&gt;元数据说明&lt;/h3&gt;
-&lt;p&gt;文章顶部的 Frontmatter 支持以下字段：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;&lt;code&gt;title&lt;/code&gt;：文章标题&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;published&lt;/code&gt;：发布日期，格式如 &lt;code&gt;YYYY-MM-DD&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;updated&lt;/code&gt;：最后修改日期，可选&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;description&lt;/code&gt;：文章摘要描述&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;image&lt;/code&gt;：文章封面图路径或外部链接&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;category&lt;/code&gt;：文章所属分类&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;tags&lt;/code&gt;：标签列表&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;pinned&lt;/code&gt;：是否置顶&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;draft&lt;/code&gt;：是否为草稿，草稿在生产构建时会被自动过滤&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;comment&lt;/code&gt;：是否开启本篇文章的评论区&lt;/li&gt;
-&lt;/ul&gt;
-&lt;h3&gt;代码高亮&lt;/h3&gt;
-&lt;pre&gt;&lt;code&gt;interface SiteIdentity {
-  name: string;
-  repo: string;
-  mode: &quot;external&quot; | &quot;local&quot;;
-}
-
-const config: SiteIdentity = {
-  name: &quot;Shirone&quot;,
-  repo: &quot;Shirone-Content&quot;,
-  mode: &quot;external&quot;
-};
-&lt;/code&gt;&lt;/pre&gt;
-&lt;h3&gt;提示块样式&lt;/h3&gt;
-&lt;blockquote&gt;
-&lt;p&gt;这是一个标准的引用与提示区块示例。&lt;/p&gt;
-&lt;/blockquote&gt;
-</content:encoded></item><item><title>自建share微博客户端激活</title><link>https://tangkai.me/posts/share-activate/</link><guid isPermaLink="true">https://tangkai.me/posts/share-activate/</guid><description>自建share微博客户端激活</description><pubDate>Thu, 16 Oct 2025 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;自建 Share 微博客户端激活&lt;/h1&gt;
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Tangkai&apos;s Blog</title><description>A blog about Tangkai</description><link>https://tangkai.me/</link><language>zh_CN</language><item><title>自建share微博客户端激活</title><link>https://tangkai.me/posts/share-activate/</link><guid isPermaLink="true">https://tangkai.me/posts/share-activate/</guid><description>自建share微博客户端激活</description><pubDate>Thu, 16 Oct 2025 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;自建 Share 微博客户端激活&lt;/h1&gt;
 &lt;p&gt;在路由器某个目录下创建一个nginx 的docker compose文件（使用macvlan，分配一个单独的ip 192.168.2.3，这样可以使用默认80和443端口）：&lt;/p&gt;
 &lt;pre&gt;&lt;code&gt;version: &apos;3.8&apos;
 services:

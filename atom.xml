@@ -7,50 +7,6 @@
   <id>https://tangkai.me/</id>
   <updated>2026-09-07T09:14:53.709Z</updated>
   <entry>
-    <title>欢迎使用 Shirone 内容仓库</title>
-    <link href="https://tangkai.me/posts/guide/" rel="alternate" type="text/html"/>
-    <id>https://tangkai.me/posts/guide/</id>
-    <published>2026-08-27T00:00:00.000Z</published>
-    <updated>2026-08-27T00:00:00.000Z</updated>
-    <summary>这是一篇示例文章，展示了 Shirone 博客主题的排版样式与元数据配置。</summary>
-    <content type="html"><![CDATA[<h2>欢迎使用</h2>
-<p>这是一篇在内容分离架构下的示例文章。本篇文章保存在独立的内容仓库中，与主题代码完全解耦。</p>
-<h3>元数据说明</h3>
-<p>文章顶部的 Frontmatter 支持以下字段：</p>
-<ul>
-<li><code>title</code>：文章标题</li>
-<li><code>published</code>：发布日期，格式如 <code>YYYY-MM-DD</code></li>
-<li><code>updated</code>：最后修改日期，可选</li>
-<li><code>description</code>：文章摘要描述</li>
-<li><code>image</code>：文章封面图路径或外部链接</li>
-<li><code>category</code>：文章所属分类</li>
-<li><code>tags</code>：标签列表</li>
-<li><code>pinned</code>：是否置顶</li>
-<li><code>draft</code>：是否为草稿，草稿在生产构建时会被自动过滤</li>
-<li><code>comment</code>：是否开启本篇文章的评论区</li>
-</ul>
-<h3>代码高亮</h3>
-<pre><code>interface SiteIdentity {
-  name: string;
-  repo: string;
-  mode: "external" | "local";
-}
-
-const config: SiteIdentity = {
-  name: "Shirone",
-  repo: "Shirone-Content",
-  mode: "external"
-};
-</code></pre>
-<h3>提示块样式</h3>
-<blockquote>
-<p>这是一个标准的引用与提示区块示例。</p>
-</blockquote>
-]]></content>
-    <author><name>Shirone</name></author>
-    <category term="使用指南"/>
-  </entry>
-  <entry>
     <title>自建share微博客户端激活</title>
     <link href="https://tangkai.me/posts/share-activate/" rel="alternate" type="text/html"/>
     <id>https://tangkai.me/posts/share-activate/</id>
@@ -150,7 +106,7 @@ http {
 </code></pre>
 <p>执行<code>docker compose up -d</code>，然后把路由器中的api.yuhengye.com 重定向到 192.168.2.3，即可在手机上输入任意验证码激活成功！</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="使用指南"/>
   </entry>
   <entry>
@@ -591,7 +547,7 @@ if __name__ == "__main__":
 <p>最后就是去淘宝打印了，其实本来是想买个打印机的，看中小米的照片打印机1s，但是看网上说很容易吃灰，而且打印机+耗材套装就750，耗材100块80张，感觉没有淘宝打印划算。</p>
 <p>先在淘宝上打印试试看吧，期待好结果。</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="使用指南"/>
   </entry>
   <entry>
@@ -603,7 +559,7 @@ if __name__ == "__main__":
     <summary></summary>
     <content type="html"><![CDATA[<p><img src="./pic/image-015082131e6f95c8.jpg" alt="" /><img src="./pic/image-01e46ff01c507ae4.jpg" alt="" /><img src="./pic/image-aeca5d38e2dcd244.jpg" alt="" /><img src="./pic/image-e273c3dad9d87160.jpg" alt="" /><img src="./pic/image-02c8d4a90f8ad377.jpg" alt="" /><img src="./pic/image-8d6f23bff38e8c99.jpg" alt="" /><img src="./pic/image-d0d22db18ae09574.jpg" alt="" /><img src="./pic/image-54605e8144f77e83.jpg" alt="" /><img src="./pic/image-2165652903b74bf5.jpg" alt="" /><img src="./pic/image-afcfefc02b040ed8.jpg" alt="" /><img src="./pic/image-9074ea24d12c08da.jpg" alt="" /><img src="./pic/image-1f8d718592be58ef.jpg" alt="" /><img src="./pic/image-b989f3d2ccb74fab.jpg" alt="" /><img src="./pic/image-4527024bce1c11fa.jpg" alt="" /><img src="./pic/image-67fa738c57098863.jpg" alt="" /><img src="./pic/image-b0877ad58cb0c4c7.jpg" alt="" /><img src="./pic/image-da426f1241bd3ca6.jpg" alt="" /><img src="./pic/image-511bc1913c046a1d.jpg" alt="" /><img src="./pic/image-49f0f4ff502282a6.jpg" alt="" /><img src="./pic/image-14237ac81220ff55.jpg" alt="" /><img src="./pic/image-2e3c552fcb7b3543.jpg" alt="" /><img src="./pic/image-bb114e85ee41c1e8.jpg" alt="" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -768,7 +724,7 @@ if __name__ == "__main__":
 <p>2. Putaala J,Tatlisumak T.Stroke in the young: Current opinion and future directions.Current Opinion in Neurology, 36(2),131-139.</p>
 <p><img src="./pic/image-f359e2d913e699a4.png" alt="" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
   </entry>
   <entry>
     <title>脑出血定位总搞混？这篇帮你理清</title>
@@ -982,7 +938,7 @@ if __name__ == "__main__":
 </ul>
 <p><img src="./pic/image-57943580d9ea5283.webp" alt="图片" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
   </entry>
   <entry>
     <title>神经病理性疼痛怎么开药？先用什么、多久加量、何时换药？</title>
@@ -1078,7 +1034,7 @@ if __name__ == "__main__":
 <p>欢迎投稿 | wuwanqing@dxy.cn</p>
 <p><img src="./pic/image-9fd6eea97337ea6c.webp" alt="图片" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
   </entry>
   <entry>
     <title>同是脑栓塞，病因可能完全不同：6 类栓子如何从影像中识别？</title>
@@ -1140,7 +1096,7 @@ if __name__ == "__main__":
 <p>欢迎投稿 | wuwanqing@dxy.cn</p>
 <p><img src="./pic/image-9fd6eea97337ea6c.webp" alt="图片" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
   </entry>
   <entry>
     <title>乌拉地尔的用法用量</title>
@@ -1238,7 +1194,7 @@ if __name__ == "__main__":
 <p>内容来源：乌拉地尔合理用药. 用药助手APP.</p>
 <p><img src="./pic/image-7630f5e920eb4889.png" alt="" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
   </entry>
   <entry>
     <title>卒中进展加重，如何处理？这 5 个方面要重点关注</title>
@@ -1251,7 +1207,7 @@ if __name__ == "__main__":
 <p><strong>描述</strong>: 你会如何治疗？</p>
 <p><img src="./pic/image-674ec12f79bd5c8d.png" alt="缩略图" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1265,7 +1221,7 @@ if __name__ == "__main__":
 <p><strong>描述</strong>: 急性缺血性卒中组织学决策的影像学入门</p>
 <p><img src="./pic/image-e9ce5d57ce225659.png" alt="缩略图" /></p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1337,7 +1293,7 @@ if __name__ == "__main__":
 <li>[5] 中国医药教育协会感染疾病专业委员会．抗菌药物药代动力学/药效学理论临床应用专家共识 [J]. 中华结核和呼吸杂志，2018,41(6):409-446.</li>
 </ul>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1358,7 +1314,7 @@ if __name__ == "__main__":
 <hr />
 <p>☞关注 ANDs</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1434,7 +1390,7 @@ if __name__ == "__main__":
 <p>[2] 王维治，王化冰译. 临床神经病学：第 8 版 [M]. 北京：人民卫生出版社.</p>
 </blockquote>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1483,7 +1439,7 @@ if __name__ == "__main__":
 <h2>正常脑血管造影解剖图解【建议收藏！】</h2>
 <p>神经科时间</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1532,7 +1488,7 @@ if __name__ == "__main__":
 <h2>正常脑血管造影解剖图解【建议收藏！】</h2>
 <p>神经科时间</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1595,7 +1551,7 @@ if __name__ == "__main__":
 <p>2.中国卒中学会神经介入分会.症状性颅内动脉粥样硬化性狭窄血管内治疗中国专家共识2022[J].中国卒中杂志,2022,17(08):863-888.</p>
 <p>3.中国卒中学会科学声明专家组,濮月华,荆京,等.症状性颅内外动脉粥样硬化性大动脉狭窄管理规范——中国卒中学会科学声明[J].中国卒中杂志,2017,12(01):64-71.</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1639,7 +1595,7 @@ if __name__ == "__main__":
 <h2>简单粗暴！但实用值拉满——头颅影像解剖结构（标识版）</h2>
 <p>华夏影像诊断中心</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1699,7 +1655,7 @@ if __name__ == "__main__":
 <p>最常见的不良反应为低血压、心动过缓</p>
 <p>及口干，所以术中要密切关注患者血压情况，另外年老的病人肾功能降低者，应当谨慎选择右美托咪定的剂量，并且监测肾脏功能。严重肾功能损害患者（肌酐清除率＜30ｍl/min）的右美托咪定的药代动力学参数与健康受试者相比无明显差异，但长期输注时应降低其使用剂量。轻度、中度和重度肝功能损伤患者右美托咪定的平均清除率分别为74％、64％和53％；重度肝功能不全患者，右美托咪定半衰期增加，故应减少其使用剂量并提前停药。</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1844,7 +1800,7 @@ if __name__ == "__main__":
 <li>[2] 刘丽萍, 周宏宇, 段婉莹, 等. 中国脑血管病临床管理指南 (第 2 版)(节选)—— 第 4 章缺血性脑血管病临床管理推荐意见 [J]. 中国卒中杂志,2023,18(8):910-933.</li>
 </ul>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -1945,7 +1901,7 @@ if __name__ == "__main__":
 <p>8. 刘畅, 孙明. 艾地苯醌改善脑能量代谢的作用机制 [J]. 神经损伤与功能重建, 2020, 15(2): 112 - 114.</p>
 <p>9.Miller J, Davis K, Wilson S. Magnesium supplementation in acute cerebral ischemia: a randomized trial. Critical Care Medicine, 2020, 48(1): 102 - 109.</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -2022,7 +1978,7 @@ if __name__ == "__main__":
 <p>8. 刘畅, 孙明. 艾地苯醌改善脑能量代谢的作用机制 [J]. 神经损伤与功能重建, 2020, 15(2): 112 - 114.</p>
 <p>9.Miller J, Davis K, Wilson S. Magnesium supplementation in acute cerebral ischemia: a randomized trial. Critical Care Medicine, 2020, 48(1): 102 - 109.</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -2119,7 +2075,7 @@ if __name__ == "__main__":
 <p>参考文献：</p>
 <p>中华医学会神经病学分会，中华医学会神经病学分会脑血管病学组. 中国急性缺血性卒中诊治指南 2023. 中华神经科杂志, 2024, 57(06):523-559.</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -2197,7 +2153,7 @@ if __name__ == "__main__":
 <li>[7] 静媛媛, 王大勇, 樊兆民, 等. 甲泼尼龙与地塞米松对全频下降型突发性聋疗效的多中心对照研究 [J]. 中华耳鼻咽喉头颈外科杂志，2015，50(7)：536-539.</li>
 </ul>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -2273,7 +2229,7 @@ if __name__ == "__main__":
 <p>for acute ischaemic stroke.European Stroke Journal 2021, Vol. 6(1) I–LXII.</p>
 </blockquote>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -2403,7 +2359,7 @@ if __name__ == "__main__":
 <hr />
 <p>点击关注👉 ANDs</p>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
   <entry>
@@ -2584,7 +2540,7 @@ if __name__ == "__main__":
 <p><strong>点击“阅读原文”，查看更多学术视频</strong></p>
 </blockquote>
 ]]></content>
-    <author><name>Shirone</name></author>
+    <author><name>TangKai</name></author>
     <category term="微信公众号"/>
   </entry>
 </feed>

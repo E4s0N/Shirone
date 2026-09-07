@@ -10,7 +10,6 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
-- [欢迎使用 Shirone 内容仓库](https://tangkai.me/posts/guide/): 这是一篇示例文章，展示了 Shirone 博客主题的排版样式与元数据配置。
 - [自建share微博客户端激活](https://tangkai.me/posts/share-activate/): 自建share微博客户端激活
 - [整理照片心得](https://tangkai.me/posts/photo-manage-experience/): 使用python脚本整理照片，按照月份分类整理
 - [📖手绘笔记｜脑部血管解剖结构合集✅](https://tangkai.me/posts/2026-09-07-手绘笔记-脑部血管解剖结构合集/)
