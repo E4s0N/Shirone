@@ -87,23 +87,24 @@ jobs:
             repository_dispatch) trigger="内容仓更新${PAYLOAD_REPOSITORY:+（${PAYLOAD_REPOSITORY}@${PAYLOAD_SHA:0:7}）}";;
             *) trigger="手动触发";;
           esac
-          header_common="> 仓库：${{ github.repository }}
-          > 提交：$short_sha $commit_subject
-          > 触发方式：$trigger，耗时 ${duration} 秒
-          > [查看工作流日志](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          header_common="仓库：${{ github.repository }}
+          提交：$short_sha $commit_subject
+          触发：$trigger，耗时 ${duration} 秒
+          日志：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           if [ -n "$SITE_URL" ]; then
             header_common="$header_common
-          > [访问站点]($SITE_URL)"
+          站点：$SITE_URL"
           fi
+          separator="━━━━━━━━━━━━━━━━"
           if [ "$BUILD_OUTCOME" = "success" ] && [ "$PUBLISH_OUTCOME" = "success" ]; then
-            printf '## ✅ 博客部署成功\n%s\n> gh-pages 已更新，EdgeOne 将自动同步最新内容\n' "$header_common" > wecom-message.md
+            printf '%s\n' "✅ 博客部署成功" "$separator" "$header_common" "$separator" "gh-pages 已更新，EdgeOne 将自动同步最新内容" > wecom-message.md
           else
             failed=""
             [ "$BUILD_OUTCOME" != "success" ] && failed="构建（内容同步 + astro build）"
             if [ "$PUBLISH_OUTCOME" != "success" ]; then
               failed="${failed:+$failed、}发布到 gh-pages"
             fi
-            printf '## ❌ 博客部署失败\n%s\n> 失败阶段：%s\n' "$header_common" "$failed" > wecom-message.md
+            printf '%s\n' "❌ 博客部署失败" "$separator" "$header_common" "失败阶段：$failed" > wecom-message.md
           fi
           cat wecom-message.md
           node scripts/notify/wecom.mjs wecom-message.md

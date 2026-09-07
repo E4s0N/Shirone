@@ -71,3 +71,5 @@ artifacts/lighthouse/*
 artifacts/shirone-ai-*
 
 albums/
+
+.tmp*/

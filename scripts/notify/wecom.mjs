@@ -11,12 +11,12 @@
 //      仅适合来源 IP 固定且已加入白名单的环境（WECOM_API_BASE 可指向自建
 //      反向代理以获得固定出口 IP）。
 //
-// 消息为企业微信 markdown 子集（#、>、**、[]()、<font>）；超过 4096 字节上限时自动截断。
+// 消息为纯文本（企业微信 text 消息上限 2048 字节）；超过预算时自动截断。
 import { readFileSync } from "node:fs";
 
 const DEFAULT_API_BASE = "https://qyapi.weixin.qq.com";
-// 企业微信 markdown 消息 content 上限为 4096 字节，预留余量避免整条消息被拒
-const SAFE_CONTENT_BYTES = 3800;
+// 企业微信 text 消息 content 上限为 2048 字节，预留余量避免整条消息被拒
+const SAFE_CONTENT_BYTES = 1900;
 const TRUNCATION_SUFFIX = "\n……（内容过长已截断）";
 
 function byteLength(text) {
@@ -80,8 +80,8 @@ async function sendViaWebhook(webhookUrl, content) {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({
-			msgtype: "markdown",
-			markdown: { content },
+			msgtype: "text",
+			text: { content },
 		}),
 		signal: AbortSignal.timeout(30_000),
 	});
@@ -93,7 +93,7 @@ async function sendViaWebhook(webhookUrl, content) {
 	}
 }
 
-async function sendMarkdown(apiBase, agentId, content) {
+async function sendText(apiBase, agentId, content) {
 	const token = await getAccessToken(apiBase);
 	const response = await fetch(
 		`${apiBase}/cgi-bin/message/send?access_token=${encodeURIComponent(token)}`,
@@ -102,9 +102,9 @@ async function sendMarkdown(apiBase, agentId, content) {
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				touser: process.env.WECOM_TOUSER || "@all",
-				msgtype: "markdown",
+				msgtype: "text",
 				agentid: agentId,
-				markdown: { content },
+				text: { content },
 				enable_duplicate_check: 1,
 				duplicate_check_interval: 1800,
 			}),
@@ -156,7 +156,7 @@ async function main() {
 				/\/+$/,
 				"",
 			);
-			await sendMarkdown(apiBase, agentId, payload);
+			await sendText(apiBase, agentId, payload);
 		}
 		console.log(
 			`[wecom-notify] 消息已发送（通道 ${channel}，${byteLength(content)} 字节）`,
