@@ -1375,6 +1375,218 @@ if __name__ == &quot;__main__&quot;:
 &lt;p&gt;1. 《中国脑血管病临床管理指南（第2版）》.人民卫生出版社.&lt;/p&gt;
 &lt;p&gt;2.中国卒中学会神经介入分会.症状性颅内动脉粥样硬化性狭窄血管内治疗中国专家共识2022[J].中国卒中杂志,2022,17(08):863-888.&lt;/p&gt;
 &lt;p&gt;3.中国卒中学会科学声明专家组,濮月华,荆京,等.症状性颅内外动脉粥样硬化性大动脉狭窄管理规范——中国卒中学会科学声明[J].中国卒中杂志,2017,12(01):64-71.&lt;/p&gt;
+</content:encoded></item><item><title>部署MinIO并通过NGINX反向代理</title><link>https://tangkai.me/posts/%E9%83%A8%E7%BD%B2minio%E5%B9%B6%E9%80%9A%E8%BF%87nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/</link><guid isPermaLink="true">https://tangkai.me/posts/%E9%83%A8%E7%BD%B2minio%E5%B9%B6%E9%80%9A%E8%BF%87nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/</guid><description>使用nginx反向代理minio</description><pubDate>Sat, 07 Feb 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;部署MinIO并通过NGINX反向代理&lt;/h1&gt;
+&lt;h1&gt;使用1panel部署MinIO&lt;/h1&gt;
+&lt;p&gt;截至&lt;strong&gt;2025年12月&lt;/strong&gt;，MinIO 官方已宣布其&lt;strong&gt;开源版本进入“纯维护模式”&lt;/strong&gt; ，这意味着它已不再是一个活跃开发的开源项目。&lt;/p&gt;
+&lt;p&gt;最后一个保留完整控制台的版本 &lt;em&gt;&lt;strong&gt;RELEASE.2025-04-22&lt;/strong&gt;&lt;/em&gt;，该版本仍支持账户管理、策略配置、集群监控等功能；&lt;/p&gt;
+&lt;p&gt;部署后，服务端口为9000，webui端口为9001，想通过nginx反向代理，减少端口暴露，并用一个域名来访问，根据&lt;a href=&quot;https://minio.org.cn/docs/minio/linux/integrations/setup-nginx-proxy-with-minio.html&quot;&gt;官方文档&lt;/a&gt;：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;upstream minio_s3 {
+   least_conn;
+   server minio-01.internal-domain.com:9000;
+   server minio-02.internal-domain.com:9000;
+   server minio-03.internal-domain.com:9000;
+   server minio-04.internal-domain.com:9000;
+}
+
+upstream minio_console {
+   least_conn;
+   server minio-01.internal-domain.com:9001;
+   server minio-02.internal-domain.com:9001;
+   server minio-03.internal-domain.com:9001;
+   server minio-04.internal-domain.com:9001;
+}
+
+server {
+   listen       80;
+   listen  [::]:80;
+   server_name  minio.example.net;
+
+   # Allow special characters in headers
+   ignore_invalid_headers off;
+   # Allow any size file to be uploaded.
+   # Set to a value such as 1000m; to restrict file size to a specific value
+   client_max_body_size 0;
+   # Disable buffering
+   proxy_buffering off;
+   proxy_request_buffering off;
+
+   location / {
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      proxy_connect_timeout 300;
+      # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+      proxy_http_version 1.1;
+      proxy_set_header Connection &quot;&quot;;
+      chunked_transfer_encoding off;
+
+      proxy_pass https://minio_s3; # This uses the upstream directive definition to load balance
+   }
+
+   location /minio/ui/ {
+      rewrite ^/minio/ui/(.*) /$1 break;
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-NginX-Proxy true;
+
+      # This is necessary to pass the correct IP to be hashed
+      real_ip_header X-Real-IP;
+
+      proxy_connect_timeout 300;
+
+      # To support websockets in MinIO versions released after January 2023
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection &quot;upgrade&quot;;
+      # Some environments may encounter CORS errors (Kubernetes + Nginx Ingress)
+      # Uncomment the following line to set the Origin request to an empty string
+      # proxy_set_header Origin &apos;&apos;;
+
+      chunked_transfer_encoding off;
+
+      proxy_pass https://minio_console; # This uses the upstream directive definition to load balance
+   }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;在1panel中，s3进行如下配置：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;location / {
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  proxy_connect_timeout 300;
+  # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+  proxy_http_version 1.1;
+  proxy_set_header Connection &quot;&quot;;
+  chunked_transfer_encoding off;
+   
+  proxy_pass http://xxx:9000;
+}
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;webui进行如下配置：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;location /minio/ui/ {
+    rewrite ^/minio/ui/(.*) /$1 break;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-NginX-Proxy true;
+    
+    # This is necessary to pass the correct IP to be hashed
+    real_ip_header X-Real-IP;
+    
+    proxy_connect_timeout 300;
+    
+    # To support websockets in MinIO versions released after January 2023
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection &quot;upgrade&quot;;
+    # Some environments may encounter CORS errors (Kubernetes + Nginx Ingress)
+    # Uncomment the following line to set the Origin request to an empty string
+    # proxy_set_header Origin &apos;&apos;;
+    
+    chunked_transfer_encoding off;
+    
+    proxy_pass http://xxx:9001; # This uses the upstream directive definition to load balance
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;遇到的问题：&lt;/h2&gt;
+&lt;p&gt;在使用Nginx作为反向代理服务器时，当代理到Minio服务时可能会遇到HEAD请求返回403的问题。这个问题主要与Nginx处理HEAD请求的默认行为有关。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;image1.webp&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+&lt;h2&gt;HEAD请求的特性&lt;/h2&gt;
+&lt;p&gt;HEAD请求与GET请求类似，但有以下特点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;只返回响应头，不返回响应体&lt;/li&gt;
+&lt;li&gt;常用于检查对象是否存在或验证其有效性&lt;/li&gt;
+&lt;li&gt;可以减少不必要的数据传输&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Nginx的默认行为&lt;/h2&gt;
+&lt;h3&gt;proxy_cache_convert_head 指令说明&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;默认行为&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果未设置​&lt;code&gt;proxy_cache_convert_head&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Nginx可能会将HEAD请求转换为GET请求&lt;/li&gt;
+&lt;li&gt;这样做是为了从缓存中获取数据&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;关闭转换（设置为off）&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;使用​&lt;code&gt;proxy_cache_convert_head off&lt;/code&gt;时&lt;/li&gt;
+&lt;li&gt;Nginx将直接处理HEAD请求&lt;/li&gt;
+&lt;li&gt;不会将HEAD请求转换为GET请求&lt;/li&gt;
+&lt;li&gt;即使在缓存中找到对应的GET响应，也不会返回响应体&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;使用场景&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;减少带宽消耗&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当只需要响应头而不需要响应体时&lt;/li&gt;
+&lt;li&gt;关闭转换可以避免不必要的数据传输&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;保持一致性&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;某些API或服务可能需要明确的HEAD请求处理&lt;/li&gt;
+&lt;li&gt;不希望HEAD请求的行为与GET请求混淆&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;解决方案&lt;/h2&gt;
+&lt;p&gt;在Nginx配置文件中添加以下配置即可解决问题：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;proxy_cache_convert_head off;
+proxy_cache off;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2&gt;最佳实践建议&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在配置Nginx反向代理Minio时，建议：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;始终明确设置HEAD请求的处理方式&lt;/li&gt;
+&lt;li&gt;根据实际需求决定是否启用缓存&lt;/li&gt;
+&lt;li&gt;定期检查日志确保配置生效&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;监控和维护：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;定期检查HEAD请求的响应状态&lt;/li&gt;
+&lt;li&gt;确保服务正常运行&lt;/li&gt;
+&lt;li&gt;适时调整配置以优化性能&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;最终的配置：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;location / {
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  proxy_connect_timeout 300;
+  # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+  proxy_http_version 1.1;
+  proxy_set_header Connection &quot;&quot;;
+  chunked_transfer_encoding off;
+  # 解决403错误
+  proxy_cache_convert_head off;
+  proxy_cache off;
+    
+  proxy_pass http://xxx:9000;
+}
+&lt;/code&gt;&lt;/pre&gt;
 </content:encoded></item><item><title>简单粗暴！但实用值拉满——头颅影像解剖结构（标识版）</title><link>https://tangkai.me/posts/2026-08-29-%E7%AE%80%E5%8D%95%E7%B2%97%E6%9A%B4-%E4%BD%86%E5%AE%9E%E7%94%A8%E5%80%BC%E6%8B%89%E6%BB%A1-%E5%A4%B4%E9%A2%85%E5%BD%B1%E5%83%8F%E8%A7%A3%E5%89%96%E7%BB%93%E6%9E%84-%E6%A0%87%E8%AF%86%E7%89%88/</link><guid isPermaLink="true">https://tangkai.me/posts/2026-08-29-%E7%AE%80%E5%8D%95%E7%B2%97%E6%9A%B4-%E4%BD%86%E5%AE%9E%E7%94%A8%E5%80%BC%E6%8B%89%E6%BB%A1-%E5%A4%B4%E9%A2%85%E5%BD%B1%E5%83%8F%E8%A7%A3%E5%89%96%E7%BB%93%E6%9E%84-%E6%A0%87%E8%AF%86%E7%89%88/</guid><description>图文来源于网络中央沟：从冠状平面将大脑分成额叶和顶叶的脑沟。半卵圆中心：指脑室上部的脑白质区域（层面上不出现侧脑室）放射冠：指两侧侧脑室周围的脑白质层面。</description><pubDate>Mon, 05 Jan 2026 22:07:00 GMT</pubDate><content:encoded>&lt;p&gt;公众号名称：华夏影像诊断中心
 作者名称：
 发布时间：2026-01-05 22:07&lt;/p&gt;

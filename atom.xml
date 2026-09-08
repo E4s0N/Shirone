@@ -1555,6 +1555,229 @@ if __name__ == "__main__":
     <category term="微信公众号"/>
   </entry>
   <entry>
+    <title>部署MinIO并通过NGINX反向代理</title>
+    <link href="https://tangkai.me/posts/%E9%83%A8%E7%BD%B2minio%E5%B9%B6%E9%80%9A%E8%BF%87nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/%E9%83%A8%E7%BD%B2minio%E5%B9%B6%E9%80%9A%E8%BF%87nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86/</id>
+    <published>2026-02-07T00:00:00.000Z</published>
+    <updated>2026-02-07T00:00:00.000Z</updated>
+    <summary>使用nginx反向代理minio</summary>
+    <content type="html"><![CDATA[<h1>部署MinIO并通过NGINX反向代理</h1>
+<h1>使用1panel部署MinIO</h1>
+<p>截至<strong>2025年12月</strong>，MinIO 官方已宣布其<strong>开源版本进入“纯维护模式”</strong> ，这意味着它已不再是一个活跃开发的开源项目。</p>
+<p>最后一个保留完整控制台的版本 <em><strong>RELEASE.2025-04-22</strong></em>，该版本仍支持账户管理、策略配置、集群监控等功能；</p>
+<p>部署后，服务端口为9000，webui端口为9001，想通过nginx反向代理，减少端口暴露，并用一个域名来访问，根据<a href="https://minio.org.cn/docs/minio/linux/integrations/setup-nginx-proxy-with-minio.html">官方文档</a>：</p>
+<pre><code>upstream minio_s3 {
+   least_conn;
+   server minio-01.internal-domain.com:9000;
+   server minio-02.internal-domain.com:9000;
+   server minio-03.internal-domain.com:9000;
+   server minio-04.internal-domain.com:9000;
+}
+
+upstream minio_console {
+   least_conn;
+   server minio-01.internal-domain.com:9001;
+   server minio-02.internal-domain.com:9001;
+   server minio-03.internal-domain.com:9001;
+   server minio-04.internal-domain.com:9001;
+}
+
+server {
+   listen       80;
+   listen  [::]:80;
+   server_name  minio.example.net;
+
+   # Allow special characters in headers
+   ignore_invalid_headers off;
+   # Allow any size file to be uploaded.
+   # Set to a value such as 1000m; to restrict file size to a specific value
+   client_max_body_size 0;
+   # Disable buffering
+   proxy_buffering off;
+   proxy_request_buffering off;
+
+   location / {
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      proxy_connect_timeout 300;
+      # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+      chunked_transfer_encoding off;
+
+      proxy_pass https://minio_s3; # This uses the upstream directive definition to load balance
+   }
+
+   location /minio/ui/ {
+      rewrite ^/minio/ui/(.*) /$1 break;
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-NginX-Proxy true;
+
+      # This is necessary to pass the correct IP to be hashed
+      real_ip_header X-Real-IP;
+
+      proxy_connect_timeout 300;
+
+      # To support websockets in MinIO versions released after January 2023
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      # Some environments may encounter CORS errors (Kubernetes + Nginx Ingress)
+      # Uncomment the following line to set the Origin request to an empty string
+      # proxy_set_header Origin '';
+
+      chunked_transfer_encoding off;
+
+      proxy_pass https://minio_console; # This uses the upstream directive definition to load balance
+   }
+}
+</code></pre>
+<p>在1panel中，s3进行如下配置：</p>
+<pre><code>location / {
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  proxy_connect_timeout 300;
+  # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+  chunked_transfer_encoding off;
+   
+  proxy_pass http://xxx:9000;
+}
+
+</code></pre>
+<p>webui进行如下配置：</p>
+<pre><code>location /minio/ui/ {
+    rewrite ^/minio/ui/(.*) /$1 break;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-NginX-Proxy true;
+    
+    # This is necessary to pass the correct IP to be hashed
+    real_ip_header X-Real-IP;
+    
+    proxy_connect_timeout 300;
+    
+    # To support websockets in MinIO versions released after January 2023
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    # Some environments may encounter CORS errors (Kubernetes + Nginx Ingress)
+    # Uncomment the following line to set the Origin request to an empty string
+    # proxy_set_header Origin '';
+    
+    chunked_transfer_encoding off;
+    
+    proxy_pass http://xxx:9001; # This uses the upstream directive definition to load balance
+}
+</code></pre>
+<h2>遇到的问题：</h2>
+<p>在使用Nginx作为反向代理服务器时，当代理到Minio服务时可能会遇到HEAD请求返回403的问题。这个问题主要与Nginx处理HEAD请求的默认行为有关。</p>
+<p><img src="image1.webp" alt="image" /></p>
+<h2>HEAD请求的特性</h2>
+<p>HEAD请求与GET请求类似，但有以下特点：</p>
+<ul>
+<li>只返回响应头，不返回响应体</li>
+<li>常用于检查对象是否存在或验证其有效性</li>
+<li>可以减少不必要的数据传输</li>
+</ul>
+<h2>Nginx的默认行为</h2>
+<h3>proxy_cache_convert_head 指令说明</h3>
+<ol>
+<li>
+<p><strong>默认行为</strong></p>
+<ul>
+<li>如果未设置​<code>proxy_cache_convert_head</code></li>
+<li>Nginx可能会将HEAD请求转换为GET请求</li>
+<li>这样做是为了从缓存中获取数据</li>
+</ul>
+</li>
+<li>
+<p><strong>关闭转换（设置为off）</strong></p>
+<ul>
+<li>使用​<code>proxy_cache_convert_head off</code>时</li>
+<li>Nginx将直接处理HEAD请求</li>
+<li>不会将HEAD请求转换为GET请求</li>
+<li>即使在缓存中找到对应的GET响应，也不会返回响应体</li>
+</ul>
+</li>
+</ol>
+<h2>使用场景</h2>
+<ol>
+<li>
+<p><strong>减少带宽消耗</strong></p>
+<ul>
+<li>当只需要响应头而不需要响应体时</li>
+<li>关闭转换可以避免不必要的数据传输</li>
+</ul>
+</li>
+<li>
+<p><strong>保持一致性</strong></p>
+<ul>
+<li>某些API或服务可能需要明确的HEAD请求处理</li>
+<li>不希望HEAD请求的行为与GET请求混淆</li>
+</ul>
+</li>
+</ol>
+<h2>解决方案</h2>
+<p>在Nginx配置文件中添加以下配置即可解决问题：</p>
+<pre><code>proxy_cache_convert_head off;
+proxy_cache off;
+</code></pre>
+<h2>最佳实践建议</h2>
+<ol>
+<li>
+<p>在配置Nginx反向代理Minio时，建议：</p>
+<ul>
+<li>始终明确设置HEAD请求的处理方式</li>
+<li>根据实际需求决定是否启用缓存</li>
+<li>定期检查日志确保配置生效</li>
+</ul>
+</li>
+<li>
+<p>监控和维护：</p>
+<ul>
+<li>定期检查HEAD请求的响应状态</li>
+<li>确保服务正常运行</li>
+<li>适时调整配置以优化性能</li>
+</ul>
+</li>
+</ol>
+<p>最终的配置：</p>
+<pre><code>location / {
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  proxy_connect_timeout 300;
+  # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+  chunked_transfer_encoding off;
+  # 解决403错误
+  proxy_cache_convert_head off;
+  proxy_cache off;
+    
+  proxy_pass http://xxx:9000;
+}
+</code></pre>
+]]></content>
+    <author><name>TangKai</name></author>
+    <category term="Linux"/>
+  </entry>
+  <entry>
     <title>简单粗暴！但实用值拉满——头颅影像解剖结构（标识版）</title>
     <link href="https://tangkai.me/posts/2026-08-29-%E7%AE%80%E5%8D%95%E7%B2%97%E6%9A%B4-%E4%BD%86%E5%AE%9E%E7%94%A8%E5%80%BC%E6%8B%89%E6%BB%A1-%E5%A4%B4%E9%A2%85%E5%BD%B1%E5%83%8F%E8%A7%A3%E5%89%96%E7%BB%93%E6%9E%84-%E6%A0%87%E8%AF%86%E7%89%88/" rel="alternate" type="text/html"/>
     <id>https://tangkai.me/posts/2026-08-29-%E7%AE%80%E5%8D%95%E7%B2%97%E6%9A%B4-%E4%BD%86%E5%AE%9E%E7%94%A8%E5%80%BC%E6%8B%89%E6%BB%A1-%E5%A4%B4%E9%A2%85%E5%BD%B1%E5%83%8F%E8%A7%A3%E5%89%96%E7%BB%93%E6%9E%84-%E6%A0%87%E8%AF%86%E7%89%88/</id>

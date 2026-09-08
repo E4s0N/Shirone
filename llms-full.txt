@@ -1,6 +1,6 @@
 # Tangkai's Blog - Full Content Archive
 
-> Generated on 2026-09-07. Contains full text of all public articles for LLM ingestion.
+> Generated on 2026-09-08. Contains full text of all public articles for LLM ingestion.
 
 ---
 
@@ -2695,6 +2695,234 @@ o 血压骤高→警惕脑出血、脑疝；血压暴跌→休克（低血压）
 2.中国卒中学会神经介入分会.症状性颅内动脉粥样硬化性狭窄血管内治疗中国专家共识2022\[J\].中国卒中杂志,2022,17(08):863-888.
 
 3.中国卒中学会科学声明专家组,濮月华,荆京,等.症状性颅内外动脉粥样硬化性大动脉狭窄管理规范——中国卒中学会科学声明\[J\].中国卒中杂志,2017,12(01):64-71.
+
+---
+
+## 部署MinIO并通过NGINX反向代理
+
+- **URL**: https://tangkai.me/posts/部署minio并通过nginx反向代理/
+- **Published**: 2026-02-07
+- **Category**: Linux
+- **Tags**: Linux, Minio
+- **Description**: 使用nginx反向代理minio
+
+# 部署MinIO并通过NGINX反向代理
+
+# 使用1panel部署MinIO
+
+截至**2025年12月**，MinIO 官方已宣布其**开源版本进入“纯维护模式”** ，这意味着它已不再是一个活跃开发的开源项目。
+
+最后一个保留完整控制台的版本 ***RELEASE.2025-04-22***，该版本仍支持账户管理、策略配置、集群监控等功能；
+
+部署后，服务端口为9000，webui端口为9001，想通过nginx反向代理，减少端口暴露，并用一个域名来访问，根据[官方文档](https://minio.org.cn/docs/minio/linux/integrations/setup-nginx-proxy-with-minio.html)：
+```nginx
+upstream minio_s3 {
+   least_conn;
+   server minio-01.internal-domain.com:9000;
+   server minio-02.internal-domain.com:9000;
+   server minio-03.internal-domain.com:9000;
+   server minio-04.internal-domain.com:9000;
+}
+
+upstream minio_console {
+   least_conn;
+   server minio-01.internal-domain.com:9001;
+   server minio-02.internal-domain.com:9001;
+   server minio-03.internal-domain.com:9001;
+   server minio-04.internal-domain.com:9001;
+}
+
+server {
+   listen       80;
+   listen  [::]:80;
+   server_name  minio.example.net;
+
+   # Allow special characters in headers
+   ignore_invalid_headers off;
+   # Allow any size file to be uploaded.
+   # Set to a value such as 1000m; to restrict file size to a specific value
+   client_max_body_size 0;
+   # Disable buffering
+   proxy_buffering off;
+   proxy_request_buffering off;
+
+   location / {
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+
+      proxy_connect_timeout 300;
+      # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+      proxy_http_version 1.1;
+      proxy_set_header Connection "";
+      chunked_transfer_encoding off;
+
+      proxy_pass https://minio_s3; # This uses the upstream directive definition to load balance
+   }
+
+   location /minio/ui/ {
+      rewrite ^/minio/ui/(.*) /$1 break;
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-NginX-Proxy true;
+
+      # This is necessary to pass the correct IP to be hashed
+      real_ip_header X-Real-IP;
+
+      proxy_connect_timeout 300;
+
+      # To support websockets in MinIO versions released after January 2023
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+      # Some environments may encounter CORS errors (Kubernetes + Nginx Ingress)
+      # Uncomment the following line to set the Origin request to an empty string
+      # proxy_set_header Origin '';
+
+      chunked_transfer_encoding off;
+
+      proxy_pass https://minio_console; # This uses the upstream directive definition to load balance
+   }
+}
+```
+
+在1panel中，s3进行如下配置：
+
+```nginx
+location / {
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  proxy_connect_timeout 300;
+  # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+  chunked_transfer_encoding off;
+   
+  proxy_pass http://xxx:9000;
+}
+
+```
+
+webui进行如下配置：
+
+```nginx
+location /minio/ui/ {
+    rewrite ^/minio/ui/(.*) /$1 break;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-NginX-Proxy true;
+    
+    # This is necessary to pass the correct IP to be hashed
+    real_ip_header X-Real-IP;
+    
+    proxy_connect_timeout 300;
+    
+    # To support websockets in MinIO versions released after January 2023
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    # Some environments may encounter CORS errors (Kubernetes + Nginx Ingress)
+    # Uncomment the following line to set the Origin request to an empty string
+    # proxy_set_header Origin '';
+    
+    chunked_transfer_encoding off;
+    
+    proxy_pass http://xxx:9001; # This uses the upstream directive definition to load balance
+}
+```
+
+## 遇到的问题：
+
+在使用Nginx作为反向代理服务器时，当代理到Minio服务时可能会遇到HEAD请求返回403的问题。这个问题主要与Nginx处理HEAD请求的默认行为有关。
+
+![image](image1.webp)
+
+## HEAD请求的特性
+
+HEAD请求与GET请求类似，但有以下特点：
+
+- 只返回响应头，不返回响应体
+- 常用于检查对象是否存在或验证其有效性
+- 可以减少不必要的数据传输
+
+## Nginx的默认行为
+
+### proxy\_cache\_convert\_head 指令说明
+
+1. **默认行为**
+
+   - 如果未设置​`proxy_cache_convert_head`
+   - Nginx可能会将HEAD请求转换为GET请求
+   - 这样做是为了从缓存中获取数据
+2. **关闭转换（设置为off）**
+
+   - 使用​`proxy_cache_convert_head off`时
+   - Nginx将直接处理HEAD请求
+   - 不会将HEAD请求转换为GET请求
+   - 即使在缓存中找到对应的GET响应，也不会返回响应体
+
+## 使用场景
+
+1. **减少带宽消耗**
+
+   - 当只需要响应头而不需要响应体时
+   - 关闭转换可以避免不必要的数据传输
+2. **保持一致性**
+
+   - 某些API或服务可能需要明确的HEAD请求处理
+   - 不希望HEAD请求的行为与GET请求混淆
+
+## 解决方案
+
+在Nginx配置文件中添加以下配置即可解决问题：
+
+```nginx
+proxy_cache_convert_head off;
+proxy_cache off;
+```
+
+## 最佳实践建议
+
+1. 在配置Nginx反向代理Minio时，建议：
+
+   - 始终明确设置HEAD请求的处理方式
+   - 根据实际需求决定是否启用缓存
+   - 定期检查日志确保配置生效
+2. 监控和维护：
+
+   - 定期检查HEAD请求的响应状态
+   - 确保服务正常运行
+   - 适时调整配置以优化性能
+
+最终的配置：
+
+```nginx
+location / {
+  proxy_set_header Host $http_host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+
+  proxy_connect_timeout 300;
+  # Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+  proxy_http_version 1.1;
+  proxy_set_header Connection "";
+  chunked_transfer_encoding off;
+  # 解决403错误
+  proxy_cache_convert_head off;
+  proxy_cache off;
+    
+  proxy_pass http://xxx:9000;
+}
+```
 
 ---
 
