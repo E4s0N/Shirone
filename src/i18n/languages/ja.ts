@@ -101,6 +101,12 @@ export const ja: Translation = {
 	[Key.albumsCounts]: "個のアルバム",
 	[Key.albumsBack]: "アルバムに戻る",
 	[Key.albumsPhotos]: "枚",
+	[Key.albumsSortBy]: "並べ替え",
+	[Key.albumsSortDate]: "撮影日",
+	[Key.albumsSortName]: "ファイル名",
+	[Key.albumsSortSize]: "ファイルサイズ",
+	[Key.albumsSortAsc]: "昇順",
+	[Key.albumsSortDesc]: "降順",
 	[Key.albumPasswordTitle]: "このアルバムは保護されています",
 	[Key.albumPasswordDescription]:
 		"写真を見るにはパスワードを入力してください。",

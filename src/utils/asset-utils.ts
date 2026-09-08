@@ -26,7 +26,8 @@ export async function resolveImageAsset(
 	);
 	if (!isLocal) return src;
 	const file = getLocalImageLoader(src, basePath);
-	return file ? file() : src;
+	// 当 glob 找不到图片时，确保返回绝对路径，避免相对当前页面 URL 解析
+	return file ? file() : src.startsWith("/") ? src : `/${src}`;
 }
 
 /**

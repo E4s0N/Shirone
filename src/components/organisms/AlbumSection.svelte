@@ -1,8 +1,10 @@
 <script lang="ts">
 import Chips from "@components/atoms/action/Chips.svelte";
 import Card from "@components/atoms/display/Card.svelte";
+import IconButton from "@components/atoms/action/IconButton.svelte";
 import LoadingIndicator from "@components/atoms/feedback/LoadingIndicator.svelte";
 import TextField from "@components/atoms/input/TextField.svelte";
+import SegmentedButton from "@components/atoms/selection/SegmentedButton.svelte";
 import AlbumCard from "@components/molecules/AlbumCard.svelte";
 import PageHeader from "@components/molecules/PageHeader.svelte";
 import PhotoMasonry from "@components/molecules/PhotoMasonry.svelte";
@@ -27,6 +29,8 @@ let mode = $state<"photos" | "albums">("photos");
 
 let query = $state("");
 let selectedTag = $state("");
+let sortBy = $state<"date" | "name" | "size">("date");
+let sortAsc = $state(false);
 let initialized = false;
 type FilterPhase = "idle" | "loading" | "out";
 let phase = $state<FilterPhase>("idle");
@@ -40,13 +44,30 @@ const tagItems = $derived(
 
 const filtered = $derived.by(() => {
 	const normalized = query.trim().toLowerCase();
-	return albums.filter((album) => {
+	const filteredAlbums = albums.filter((album) => {
 		if (selectedTag && !album.tags.includes(selectedTag)) return false;
 		if (!normalized) return true;
 		return [album.title, album.description, album.location, ...album.tags]
 			.join(" ")
 			.toLowerCase()
 			.includes(normalized);
+	});
+	return [...filteredAlbums].sort((a, b) => {
+		let cmp = 0;
+		if (sortBy === "date") cmp = (a.date || "").localeCompare(b.date || "");
+		else if (sortBy === "name") cmp = a.title.localeCompare(b.title);
+		else if (sortBy === "size") cmp = a.photoCount - b.photoCount;
+		return sortAsc ? cmp : -cmp;
+	});
+});
+
+const sortedPhotos = $derived.by(() => {
+	return [...photos].sort((a, b) => {
+		let cmp = 0;
+		if (sortBy === "date") cmp = (a.date || "").localeCompare(b.date || "");
+		else if (sortBy === "name") cmp = (a.alt || "").localeCompare(b.alt || "");
+		// WallPhoto 没有 size 字段，按 date 降序作为默认
+		return sortAsc ? cmp : -cmp;
 	});
 });
 
@@ -71,8 +92,12 @@ function syncUrl() {
 	else params.set("mode", "albums");
 	params.delete("q");
 	params.delete("albumTag");
+	params.delete("sort");
+	params.delete("order");
 	if (query.trim()) params.set("q", query.trim());
 	if (selectedTag) params.set("albumTag", selectedTag);
+	if (sortBy !== "date") params.set("sort", sortBy);
+	if (sortAsc) params.set("order", "asc");
 	const search = params.toString();
 	history.replaceState(
 		null,
@@ -91,6 +116,9 @@ onMount(() => {
 	mode = params.get("mode") === "albums" ? "albums" : "photos";
 	query = params.get("q") || "";
 	selectedTag = params.get("albumTag") || "";
+	const sortParam = params.get("sort");
+	if (sortParam === "name" || sortParam === "size") sortBy = sortParam;
+	sortAsc = params.get("order") === "asc";
 	initialized = true;
 
 	// category-bar（持久外壳）模式切换按钮 → 本组件
@@ -109,16 +137,35 @@ onMount(() => {
 <Card color="var(--card-bg)" radius="l" class="album-section px-8 py-6">
 	<PageHeader
 		icon="material-symbols:photo-library-outline-rounded"
-		title={i18n(I18nKey.albums)}
-		subtitle={i18n(I18nKey.albumsBanner)}
+		title={mode === "albums" ? i18n(I18nKey.albums) : ""}
+		subtitle=""
 	/>
 
+	<!-- 排序工具栏 -->
+	<div class="album-section__sort">
+		<SegmentedButton
+			bind:value={sortBy}
+			label={i18n(I18nKey.albumsSortBy)}
+			options={[
+				{ value: "date", label: i18n(I18nKey.albumsSortDate) },
+				{ value: "name", label: i18n(I18nKey.albumsSortName) },
+				{ value: "size", label: i18n(I18nKey.albumsSortSize) },
+			]}
+		/>
+		<IconButton
+			variant="outlined"
+			icon={sortAsc ? "material-symbols:keyboard-arrow-up-rounded" : "material-symbols:keyboard-arrow-down-rounded"}
+			label={sortAsc ? i18n(I18nKey.albumsSortDesc) : i18n(I18nKey.albumsSortAsc)}
+			onclick={() => (sortAsc = !sortAsc)}
+		/>
+	</div>
+
 	{#if mode === "photos"}
-		{#if photos.length > 0}
+		{#if sortedPhotos.length > 0}
 			<p class="album-section__count album-section__count--wall" aria-live="polite">
-				{photos.length} {i18n(I18nKey.albumsPhotos)}
+				{sortedPhotos.length} {i18n(I18nKey.albumsPhotos)}
 			</p>
-			<PhotoMasonry {photos} onOpen={openPhoto} />
+			<PhotoMasonry photos={sortedPhotos} onOpen={openPhoto} />
 		{:else}
 			<div class="album-section__empty">
 				<Icon icon="material-symbols:photo-library-outline-rounded" aria-hidden="true" />
@@ -184,6 +231,21 @@ onMount(() => {
 <style lang="stylus">
 .album-section
 	display: block
+	&__sort
+		display: flex
+		align-items: center
+		gap: 0.75rem
+		padding-bottom: 1rem
+		border-bottom: 1px solid var(--outline-variant)
+		margin-bottom: 1rem
+		:global(.m3-segmented)
+			flex: 1
+			min-width: 0
+			overflow-x: auto
+		:global(.m3-segmented__segment)
+			white-space: nowrap
+			flex: 0 0 auto
+			min-width: 0
 	&__tools
 		display: grid
 		gap: 0.875rem
