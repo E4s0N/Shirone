@@ -1279,6 +1279,824 @@ __LLMS_CODE_BLOCK_2__
 
 ---
 
+## ScreenScraper WebAPI v2 文档（中文翻译）
+
+- **URL**: https://tangkai.me/posts/2026-09-08-screenscraper-api-v2-cn/
+- **Published**: 2026-09-08
+- **Category**: 技术文档
+- **Tags**: API, ScreenScraper, 复古游戏, 文档
+- **Description**: ScreenScraper WebAPI v2 完整中文文档，用于在游戏前端中集成 ScreenScraper 数据和媒体资源。
+
+# ScreenScraper WebAPI v2 文档（中文翻译）
+
+> **注意：版本 2 处于 Beta 测试阶段，此版本的 API 可能随时会进行修改，恕不另行通知。**
+
+## API 简介
+
+我们的 API 允许您获取 ScreenScraper 的所有数据和媒体资源，以便集成到您的应用程序中：前端界面、实用工具等。
+
+所有请求都可以返回 XML、JSON 或 ini 格式的数据。
+
+## 谁可以使用此 API？
+
+**ScreenScraper API 只能集成到完全免费且公开发布的应用程序中，否则需要事先获得 ScreenScraper 团队的授权并遵守其规定的条件。** 违反此规则可能导致账号被封禁，甚至可能面临法律诉讼！
+
+如果您是开发者并希望集成我们的 API，[请通过论坛联系我们](https://www.screenscraper.fr/forumsujets.php?frub=12&numpage=0)介绍您的软件，获取 API 所需的开发者 ID 和密码。
+
+## 如何向 API 发送请求？
+
+通过 GET 类型的 URL 请求向 ScreenScraper API 发送信息和/或媒体请求，返回 XML 或 JSON 文档。
+
+**游戏搜索示例：**
+```
+https://api.screenscraper.fr/api2/jeuInfos.php?devid=xxx&devpassword=yyy&softname=zzz&ssid=test&sspassword=test&output=xml&crc=50ABC90A&systemeid=1&romtype=rom&romnom=Sonic%20The%20Hedgehog%202%20(World).zip&romtaille=749652
+```
+
+## 允许同时向 API 发送多少请求？
+
+根据用户对数据库的贡献程度（内容贡献或资金贡献），系统会分配不同数量的「线程」。
+
+### 什么是「线程」？
+
+某些抓取软件（如 Universal XML Scraper）允许您同时处理多个 ROM，而不是逐个处理，从而节省抓取时间。
+
+同时抓取的数量就是所谓的「线程」。
+
+例如，拥有 4 个线程意味着您可以同时抓取 4 个 ROM，这将大大节省时间。
+
+但请注意，这会占用更多计算机资源和带宽，尤其是会更多地访问数据库和服务器。
+
+因此，我们建立了「奖励」系统。为了感谢您为 ScreenScraper 数据库做出的贡献，我们为您提供更高效的资源使用权限。
+
+### 如何获得更多「线程」？
+
+有两种简单的方法：
+- 通过提交新信息或新媒体资源参与数据库建设
+- 通过 Tipee 或 Patreon 资助数据库托管费用
+
+### 我可以获得多少「线程」？
+
+请查阅[常见问题](https://www.screenscraper.fr/faq.php)了解更多信息。
+
+## 每分钟和每天允许向 API 发送多少请求？
+
+自 2019 年中左右，API 引入了「配额」系统，以避免服务器过载。
+
+该系统根据用户的等级和资金参与情况，限制每个用户**每分钟**和**每天**的 API 访问权限。
+
+请查阅[常见问题](https://www.screenscraper.fr/faq.php)了解更多信息。
+
+配额信息会在用户数据中返回，以便软件可以直接集成和管理。
+
+软件端的配额管理现在是强制性的，以避免不必要地占用服务器资源。
+
+## 错误返回
+
+API 请求在出现问题时会返回 HTTP 错误代码：
+
+| 错误代码 | 描述 | 原因 |
+|---------|------|------|
+| 400 | URL 问题 | API 调用 URL 不包含任何信息 |
+| 400 | URL 中缺少必填字段 | API 调用 URL 中缺少最低必填字段 |
+| 400 | ROM 文件名错误：包含路径 | 发送的 ROM 文件名格式为 "!mnt!sda1!batocera!roms!..." |
+| 400 | CRC、MD5 或 SHA1 字段错误 | CRC、MD5 或 SHA1 字段格式不正确 |
+| 400 | ROM 文件名问题 | ROM 文件名不符合规范 |
+| 401 | API 对非会员或不活跃会员关闭 | 服务器过载（CPU 使用率 > 60%） |
+| 403 | 登录错误：请检查开发者凭据！ | 开发者凭据错误 |
+| 404 | 错误：未找到游戏！/ 错误：未找到 ROM/ISO/文件夹！ | 无法在请求的 ROM 中找到匹配项 |
+| 423 | API 完全关闭 | 服务器出现严重问题 |
+| 426 | 使用的抓取软件已被列入黑名单（不兼容/版本过旧） | 需要更换软件版本 |
+| 429 | 已达到会员允许的线程数 | 需要降低请求速度 |
+| 429 | 已达到会员每分钟允许的线程数 | 需要降低请求速度 |
+| 429 | 已达到 leecher 用户允许的最大线程数 | 需要降低请求速度 |
+| 430 | 今天的抓取配额已用完！ | 用户当天抓取了超过 x 个 ROM |
+| 431 | 请整理您的 ROM 文件，明天再来！ | 用户抓取了超过 x 个未被 ScreenScraper 识别的 ROM |
+
+---
+
+## API 请求列表
+
+- [ssinfraInfos.php](#ssinfrainfosphp)：ScreenScraper 基础设施信息
+- [ssuserInfos.php](#ssuserinfosphp)：ScreenScraper 用户信息
+- [userlevelsListe.php](#userlevelslistephp)：ScreenScraper 用户等级列表
+- [nbJoueursListe.php](#nbjoueurslistephp)：玩家数量列表
+- [supportTypesListe.php](#supporttypeslistephp)：支持类型列表
+- [romTypesListe.php](#romtypeslistephp)：ROM 类型列表
+- [regionsListe.php](#regionslistephp)：区域列表
+- [languesListe.php](#langueslistephp)：语言列表
+- [genresListe.php](#genreslistephp)：游戏类型列表
+- [famillesListe.php](#familleslistephp)：游戏系列列表
+- [classificationsListe.php](#classificationslistephp)：分级列表（游戏评级）
+- [mediasSystemeListe.php](#mediassystemelistephp)：系统媒体列表
+- [mediasJeuListe.php](#mediasjeulistephp)：游戏媒体列表
+- [infosJeuListe.php](#infosjeulistephp)：游戏信息列表
+- [infosRomListe.php](#infosromlistephp)：ROM 信息列表
+- [mediaGroup.php](#mediagroupphp)：下载游戏组媒体图片
+- [mediaCompagnie.php](#mediacompagniephp)：下载公司媒体图片
+- [systemesListe.php](#systemeslistephp)：系统列表 / 系统信息 / 系统媒体信息
+- [mediaSysteme.php](#mediasystemephp)：下载系统媒体图片
+- [mediaVideoSysteme.php](#mediavideosystemephp)：下载系统视频媒体
+- [jeuRecherche.php](#jeurecherchephp)：按名称搜索游戏
+- [jeuInfos.php](#jeuinfosphp)：游戏信息 / 游戏媒体
+- [mediaJeu.php](#mediajeuphp)：下载游戏媒体图片
+- [mediaVideoJeu.php](#mediavideojeuphp)：下载游戏视频媒体
+- [mediaManuelJeu.php](#mediamanueljeuphp)：下载游戏手册
+- [botNote.php](#botnotephp)：自动发送游戏评分系统
+- [botProposition.php](#botpropositionphp)：自动发送信息或媒体建议系统
+
+---
+
+## ssinfraInfos.php
+
+**ScreenScraper 基础设施信息**
+
+### 输入参数
+
+- **devid**：您的开发者 ID
+- **devpassword**：您的开发者密码
+- **softname**：调用软件名称
+- **output**：xml（默认）或 json
+
+### 返回元素
+
+项目：**serveurs**（ScreenScraper 服务器信息）
+
+- **cpu1**：服务器 1 的 CPU 使用率（过去 5 分钟平均值）
+- **cpu2**：服务器 2 的 CPU 使用率（过去 5 分钟平均值）
+- **cpu3**：服务器 3 的 CPU 使用率（过去 5 分钟平均值）
+- **threadsmin**：自上次分钟以来的 API 访问次数
+- **nbscrapeurs**：自上次分钟以来使用 API 的抓取器数量
+- **apiacces**：当天（GMT+1）的 API 访问次数
+
+**状态**
+- **closefornomember**：API 是否对匿名用户关闭（0：开放 / 1：关闭）
+- **closeforleecher**：API 是否对未参与贡献的会员关闭（0：开放 / 1：关闭）
+
+**配额**
+- **maxthreadfornonmember**：匿名用户最大同时线程数
+- **threadfornonmember**：匿名用户当前线程数
+- **maxthreadformember**：会员最大同时线程数
+- **threadformember**：会员当前线程数
+
+### 调用示例
+```
+https://api.screenscraper.fr/api2/ssinfraInfos.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml
+```
+
+---
+
+## ssuserInfos.php
+
+**ScreenScraper 用户信息**
+
+### 输入参数
+
+- **devid**：您的开发者 ID
+- **devpassword**：您的开发者密码
+- **softname**：调用软件名称
+- **output**：xml（默认）或 json
+- **ssid**：ScreenScraper 用户 ID
+- **sspassword**：ScreenScraper 用户密码
+
+### 返回元素
+
+项目：**ssuser**（ScreenScraper 用户信息）
+
+- **id**：用户昵称
+- **numid**：用户数字 ID
+- **niveau**：用户等级
+- **contribution**：资金贡献等级（2 = 1 个额外线程 / 3 及以上 = 5 个额外线程）
+- **uploadsysteme**：用户提交的有效系统媒体计数
+- **uploadinfos**：用户提交的有效文本信息计数
+- **romasso**：用户提交的有效 ROM 关联计数
+- **uploadmedia**：用户提交的有效游戏媒体计数
+- **propositionok**：版主通过的建议数量
+- **propositionko**：版主拒绝的建议数量
+- **quotarefu**：建议拒绝百分比
+
+**线程**
+- **maxthreads**：允许的线程数
+- **maxdownloadspeed**：允许的下载速度（KB/s）
+
+**配额**
+- **requeststoday**：当天 API 调用总数
+- **requestskotoday**：返回负面结果的 API 调用数
+- **maxrequestspermin**：每分钟最大 API 调用数
+- **maxrequestsperday**：每天最大 API 调用数
+- **maxrequestskoperday**：每天返回负面结果的最大 API 调用数
+- **visites**：访问次数
+- **datedernierevisite**：最后访问日期（格式：yyyy-mm-jj hh:mm:ss）
+- **favregion**：偏好区域（france, europe, usa, japon）
+
+### 调用示例
+
+```
+https://api.screenscraper.fr/api2/ssuserInfos.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml&ssid=&sspassword=
+```
+
+---
+
+## systemesListe.php
+
+**系统列表 / 系统信息 / 系统媒体信息**
+
+### 输入参数
+
+- **devid**：您的开发者 ID
+- **devpassword**：您的开发者密码
+- **softname**：调用软件名称
+- **output**：xml（默认）或 json
+- **ssid**（非必填）：ScreenScraper 用户 ID
+- **sspassword**（非必填）：ScreenScraper 用户密码
+
+### 返回元素
+
+项目：**systeme**（xml）/ **systemes**（json）
+
+- **id**：系统数字 ID
+- **parentid**：父系统数字 ID
+- **noms**：按区域的系统名称
+- **extensions**：可用的 ROM 文件扩展名
+- **compagnie**：生产公司名称
+- **type**：系统类型（Arcade, Console, Console Portable, Emulation Arcade, Flipper, Online, Ordinateur, Smartphone）
+- **datedebut**：生产开始年份
+- **datefin**：生产结束年份
+- **romtype**：ROM 类型
+- **supporttype**：原始支持类型
+- **medias**：系统媒体（logo、wheel、照片、视频、bezel、背景等）
+
+### 调用示例
+
+```
+https://api.screenscraper.fr/api2/systemesListe.php?devid=xxx&devpassword=yyy&softname=zzz&output=XML&ssid=test&sspassword=test
+```
+
+---
+
+## jeuInfos.php
+
+**游戏信息 / 游戏媒体**
+
+### 输入参数
+
+- **devid**：您的开发者 ID
+- **devpassword**：您的开发者密码
+- **softname**：调用软件名称
+- **output**：xml（默认）或 json
+- **ssid**（非必填）：ScreenScraper 用户 ID
+- **sspassword**（非必填）：ScreenScraper 用户密码
+- **crc**：ROM/ISO/文件夹的 CRC 校验值
+- **md5**：ROM/ISO/文件夹的 MD5 校验值
+- **sha1**：ROM/ISO/文件夹的 SHA1 校验值
+- **systemeid**：系统数字 ID
+- **romtype**：ROM 类型（单个 ROM 文件 / 单个 ISO 文件 / 文件夹）
+- **romnom**：文件名（含扩展名）或文件夹名
+- **romtaille**：文件或文件夹的大小（字节）
+- **serialnum**：使用序列号强制搜索游戏
+- **gameid**：使用游戏数字 ID 强制搜索
+
+### 返回元素
+
+项目：**jeu**
+
+- **id**：游戏数字 ID
+- **romid**：ROM 数字 ID
+- **notgame**：（true/false）指示 ROM 是否被分配到非游戏（demo/应用等）
+- **nom**：游戏名称
+- **noms**：按区域的游戏名称
+- **cloneof**：克隆 ID
+- **systeme**：系统信息
+- **editeur**：发行商名称
+- **developpeur**：开发商名称
+- **joueurs**：玩家数量
+- **note**：评分（满分 20）
+- **synopsis**：按语言的游戏描述
+- **classifications**：游戏分级
+- **dates**：按区域的发布日期
+- **genres**：游戏类型
+- **modes**：游戏模式
+- **familles**：游戏系列
+- **themes**：游戏主题
+- **styles**：游戏风格
+- **medias**：游戏媒体（截图、同人、视频、wheel、包装盒、支持、传单、手册、bezel）
+- **roms**：已知 ROM 列表
+
+### 调用示例
+
+```
+https://api.screenscraper.fr/api2/jeuInfos.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml&ssid=test&sspassword=test&crc=50ABC90A&systemeid=1&romtype=rom&romnom=Sonic%20The%20Hedgehog%202%20(World).zip&romtaille=749652
+```
+
+---
+
+## jeuRecherche.php
+
+**按名称搜索游戏（返回最多 30 个按概率排序的游戏）**
+
+### 输入参数
+
+- **devid**：您的开发者 ID
+- **devpassword**：您的开发者密码
+- **softname**：调用软件名称
+- **output**：xml（默认）或 json
+- **ssid**（非必填）：ScreenScraper 用户 ID
+- **sspassword**（非必填）：ScreenScraper 用户密码
+- **systemeid**（非必填）：系统数字 ID
+- **recherche**：要搜索的游戏名称
+
+### 调用示例
+
+```
+https://api.screenscraper.fr/api2/jeuRecherche.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml&ssid=test&sspassword=test&systemeid=1&recherche=sonic
+```
+
+---
+
+## mediaJeu.php
+
+**下载游戏媒体图片**
+
+### 输入参数
+
+- **devid**：您的开发者 ID
+- **devpassword**：您的开发者密码
+- **softname**：调用软件名称
+- **ssid**（非必填）：ScreenScraper 用户 ID
+- **sspassword**（非必填）：ScreenScraper 用户密码
+- **crc**：本地图片的 CRC 校验值
+- **md5**：本地图片的 MD5 校验值
+- **sha1**：本地图片的 SHA1 校验值
+- **systemeid**：系统数字 ID
+- **jeuid**：游戏数字 ID
+- **media**：要返回的媒体文本 ID
+
+### 输出参数
+
+- **maxwidth**（非必填）：返回图片的最大宽度（像素）
+- **maxheight**（非必填）：返回图片的最大高度（像素）
+- **outputformat**（非必填）：返回图片格式：**png** 或 **jpg**
+
+### 返回元素
+
+- **PNG 图片**
+- 或文本 **CRCOK** / **MD5OK** / **SHA1OK**（如果与服务器相同）
+- 或文本 **NOMEDIA**（如果未找到）
+
+### 调用示例
+
+```
+https://api.screenscraper.fr/api2/mediaJeu.php?devid=xxx&devpassword=yyy&softname=zzz&ssid=test&sspassword=test&crc=&md5=&sha1=&systemeid=1&jeuid=3&media=wheel-hd(wor)
+```
+
+---
+
+## 媒体类型列表
+
+| 类型 | 说明 | 格式 | 区域 | 支持编号 | 多版本 |
+|------|------|------|------|---------|--------|
+| sstitle | 标题截图 | jpg | 必填 | | |
+| ss | 截图 | jpg | 必填 | | |
+| fanart | 同人图 | jpg | | | |
+| video | 视频 | mp4 | | | |
+| overlay | 覆盖层 | png | 必填 | | |
+| steamgrid | Steam 网格图 | jpg | | | |
+| wheel | Wheel | png | 必填 | | |
+| wheel-hd | 高清 Logo | png | 必填 | | |
+| marquee | Marquee | png | | | |
+| screenmarquee | 屏幕 Marquee | png | 必填 | | |
+| box-2D | 包装盒：正面 | png | 必填 | 必填 | |
+| box-2D-side | 包装盒：侧面 | png | 必填 | 必填 | |
+| box-2D-back | 包装盒：背面 | png | 必填 | 必填 | |
+| box-texture | 包装盒：材质 | png | 必填 | 必填 | |
+| manuel | 手册 | pdf | 必填 | | |
+| flyer | 传单 | jpg | 必填 | 必填 | |
+| maps | 地图 | jpg | | | 是 |
+| figurine | 手办 | png | | | |
+| support-texture | 支持：材质 | png | 必填 | 必填 | |
+| bezel-4-3 | Bezel 4:3 水平 | png | 必填 | | |
+| bezel-16-9 | Bezel 16:9 水平 | png | 必填 | | |
+
+---
+
+## 其他请求
+
+关于其他请求（genresListe、famillesListe、regionsListe、languesListe 等），请查阅 ScreenScraper 网站上的完整文档。
+
+---
+
+*基于 ScreenScraper WebAPI v2 文档翻译 - https://www.screenscraper.fr*
+
+---
+
+## ScreenScraper WebAPI v2 Documentation
+
+- **URL**: https://tangkai.me/posts/2026-09-08-screenscraper-api-v2-fr/
+- **Published**: 2026-09-08
+- **Category**: 技术文档
+- **Tags**: API, ScreenScraper, Retrogaming, Documentation
+- **Description**: Documentation complète de l'API Web v2 de ScreenScraper pour l'intégration dans les front-ends gaming.
+
+# ScreenScraper WebAPI v2 Documentation
+
+> **Attention : la version 2 est en mode betatest, des modifications peuvent etre apportées a tout moment sur cette version de l'API sans préavis.**
+
+## Présentation de l'API
+
+Notre API vous permet d'obtenir l'intégralité des données et des médias de ScreenScraper pour l'intégrer dans vos applications : front-ends, utilitaires.
+
+Toutes nos requêtes permettent d'obtenir en retour les informations voulues au format XML, JSON ou ini.
+
+## Qui peut utiliser l'API ?
+
+**L'API ScreenScraper ne peut être intégré que dans les applications entièrement gratuites et distribuées, ou, dans le cas contraire, avec l'autorisation préalable et les conditions dictées par l'équipe de ScreenScraper.** Tout manquement à cette règle pourra faire l'objet d'une coupure de compte, voir d'éventuelles poursuites judiciaires !
+
+Si vous êtes développeur et voulez intégrer notre API, [contactez-nous via le forum](https://www.screenscraper.fr/forumsujets.php?frub=12&numpage=0) pour présenter votre logiciel et obtenir vos identifiants et mot de passe à fournir à l'API pour valider vos droits d'exploitation de celle-ci.
+
+## Comment faire des requêtes à notre API ?
+
+Les demandes d'informations et/ou média à l'API ScreenScraper sont effectuées par l'appel de requêtes URL de type GET et un document XML ou json est retourné.
+
+**Exemple Jeu Recherche:**
+```
+https://api.screenscraper.fr/api2/jeuInfos.php?devid=xxx&devpassword=yyy&softname=zzz&ssid=test&sspassword=test&output=xml&crc=50ABC90A&systemeid=1&romtype=rom&romnom=Sonic%20The%20Hedgehog%202%20(World).zip&romtaille=749652
+```
+
+## Combien de requêtes simultanés à l'API est autorisé ?
+
+En fonction du niveau de contribution de l'utilisateur (à la base de données ou financière) celui-ci se fait attribuer des ouvertures de « Threads ».
+
+### Qu'est-ce qu'un « Thread » ?
+
+Certains logiciels de scrape, comme « Universal XML Scraper » vous permette de gagner du 'temps de scrape' en ne traitant pas les roms une par une, mais simultanément en parallèle.
+
+Le nombre de scrape simultané est ce que l'on appelle un « Thread ».
+
+Donc avec 4 Threads, vous scrapez vos roms 4 par 4, ce qui représente un gain de temps énorme.
+
+Par contre, cela sollicite beaucoup plus votre ordinateur et votre bande passante (il faut donc que celui-ci ai les ressources nécessaires) mais surtout, sollicite beaucoup plus la base de données et le serveur qui l'héberge.
+
+C'est pour cela que le système de « récompense » a été mis en place. Pour vous remercier de contribuer à la vie de la base de données Screenscraper on vous offre la possibilité de puiser dans ses ressources plus efficacement.
+
+### Comment gagner des « Threads » ?
+
+Il existe 2 méthodes simples :
+- Participer à la base de données en proposant de nouvelles informations ou de nouveaux medias
+- Participer financièrement à l'hébergement de la base de données via Tipee ou Patreon.
+
+### Combien puis-je gagner de « Threads » ?
+
+Consulter la [F.A.Q](https://www.screenscraper.fr/faq.php) pour plus d'informations.
+
+## Combien de requêtes à l'API est autorisé par minute et par jour ?
+
+Depuis environ le milieu de l'année 2019, un système de « Quota » a été intégré a l'API afin d'éviter la saturation de nos serveurs.
+
+Le principe est de limiter le droit d'accés a l'API pour chaque utilisateur **par minute** et **par jour** en fonction de leur niveau et leur participation financière.
+
+Consulter la [F.A.Q](https://www.screenscraper.fr/faq.php) pour plus d'informations.
+
+Les informations de « Quota » sont renvoyées dans les données utilisateurs afin que celui-ci soit facilement intégrable et géré directement par le logiciel de scrape.
+
+Cette gestion de « Quota » par logiciel est désormais obligatoire afin de ne pas saturer nos serveurs pour rien.
+
+## Retour d'erreurs
+
+Les requêtes de l'API renvoi des numeros d'erreurs HTTP en cas de problème :
+
+| Erreur | Description | Cause |
+|--------|-------------|-------|
+| 400 | problème avec l'url | l'url d'appel a l'api ne contient aucune information |
+| 400 | Il manque des champs obligatoires dans l'url | l'un des champs minimum obligatoire est manquant dans l'url d'appel a l'api |
+| 400 | Erreur dans le nom du fichier rom : celui-ci contient un chemin d'accés | le nom du fichier rom envoyé est de type "!mnt!sda1!batocera!roms!..." |
+| 400 | Champ crc, md5 ou sha1 erroné | Le champ crc, md5 ou sha1 n'est pas correctement formaté |
+| 400 | Problème dans le nom du fichier rom | Le nom du fichier rom n'est pas conforme |
+| 401 | API fermé pour les non membres ou les membres inactifs | Le Serveur est saturé (utilisation CPU>60%) |
+| 403 | Erreur de login : Vérifier vos identifiants développeur ! | identifiants developpeur éronnés |
+| 404 | Erreur : Jeu non trouvée ! / Erreur : Rom/Iso/Dossier non trouvée ! | Impossible de trouver une concordance sur la rom demandé |
+| 423 | API totalement fermé | Le Serveur a de grave problème |
+| 426 | Le logiciel de scrape utilisé a été blacklisté (non conforme / version obsolète) | Il faut changer de version de logiciel |
+| 429 | Le nombre de threads autorisé pour le membre est atteint | Il faut reduire la vitesse de requètes |
+| 429 | Le nombre de threads par minute autorisé pour le membre est atteint | Il faut reduire la vitesse de requètes |
+| 429 | The maximum threads allowed to leecher users is already used | Il faut reduire la vitesse de requètes |
+| 430 | Votre quota de scrape est dépassé pour aujourd'hui ! | Le membre a scraper plus de x (voir F.A.Q) roms dans la journée |
+| 431 | Faite du tri dans vos fichiers roms et repassez demain ! | Le membre a scraper plus de x (voir F.A.Q) roms non reconnu par ScreenScraper |
+
+---
+
+## Liste des requêtes
+
+- [ssinfraInfos.php](#ssinfrainfosphp) : Informations sur l'infrastructure ScreenScraper
+- [ssuserInfos.php](#ssuserinfosphp) : Informations sur l'utilisateur ScreenScraper
+- [userlevelsListe.php](#userlevelslistephp) : Liste des niveaux utilisateurs de ScreenScraper
+- [nbJoueursListe.php](#nbjoueurslistephp) : Liste des nombres de joueurs
+- [supportTypesListe.php](#supporttypeslistephp) : Liste des types de supports
+- [romTypesListe.php](#romtypeslistephp) : Liste des types de roms
+- [regionsListe.php](#regionslistephp) : Liste des regions
+- [languesListe.php](#langueslistephp) : Liste des langues
+- [genresListe.php](#genreslistephp) : Liste des genres
+- [famillesListe.php](#familleslistephp) : Liste des familles
+- [classificationsListe.php](#classificationslistephp) : Liste des Classifications (Game Rating)
+- [mediasSystemeListe.php](#mediassystemelistephp) : Liste des médias pour les systèmes
+- [mediasJeuListe.php](#mediasjeulistephp) : Liste des médias pour les jeux
+- [infosJeuListe.php](#infosjeulistephp) : Liste des infos pour les jeux
+- [infosRomListe.php](#infosromlistephp) : Liste des infos pour les roms
+- [mediaGroup.php](#mediagroupphp) : Téléchargement des médias images des groupes de jeux
+- [mediaCompagnie.php](#mediacompagniephp) : Téléchargement des médias images des compagnies de jeux
+- [systemesListe.php](#systemeslistephp) : Liste des systèmes / informations systèmes / informations médias systèmes
+- [mediaSysteme.php](#mediasystemephp) : Téléchargement des médias images des systèmes
+- [mediaVideoSysteme.php](#mediavideosystemephp) : Téléchargement des médias vidéos des systèmes
+- [jeuRecherche.php](#jeurecherchephp) : Recherche d'un jeu avec son nom
+- [jeuInfos.php](#jeuinfosphp) : Informations sur un jeu / Médias d'un jeu
+- [mediaJeu.php](#mediajeuphp) : Téléchargement des médias images des jeux
+- [mediaVideoJeu.php](#mediavideojeuphp) : Téléchargement des médias vidéos des jeux
+- [mediaManuelJeu.php](#mediamanueljeuphp) : Téléchargement des manuels des jeux
+- [botNote.php](#botnotephp) : Système pour l'automatisation d'envoi de note de jeu
+- [botProposition.php](#botpropositionphp) : Système pour automatisation d'envoi de propositions
+
+---
+
+## ssinfraInfos.php
+
+**Informations sur l'infrastructure ScreenScraper**
+
+### Paramètres d'entrées
+
+- **devid** : votre identifiant développeur
+- **devpassword** : votre mot de passe développeur
+- **softname** : nom du logiciel appelant
+- **output** : xml(par defaut),json
+
+### Elements Retournés
+
+Item : **serveurs** (informations serveurs ScreenScraper)
+
+- **cpu1** : % d'utilisation du CPU du serveur 1 (moyenne des 5 dernières minutes)
+- **cpu2** : % d'utilisation du CPU du serveur 2 (moyenne des 5 dernières minutes)
+- **cpu3** : % d'utilisation du CPU du serveur 3 (moyenne des 5 dernières minutes)
+- **threadsmin** : Nombre d'accés a l'api depuis la dernière minute
+- **nbscrapeurs** : Nombre de scrapeurs utilisant l'api depuis la dernière minute
+- **apiacces** : Nombre d'accés a l'api dans la journée en cours (GMT+1)
+
+**Status**
+- **closefornomember** : API fermée pour les anonymes (0 : ouvert / 1 : fermé)
+- **closeforleecher** : API fermée pour les membres non participant (0 : ouvert / 1 : fermé)
+
+**Quota**
+- **maxthreadfornonmember** : Nombre maximum de threads ouverts pour les anonymes
+- **threadfornonmember** : Nombre actuel de threads ouverts par les anonymes
+- **maxthreadformember** : Nombre maximum de threads ouverts pour les membres
+- **threadformember** : Nombre actuel de threads ouverts par les membres
+
+### Exemple d'appel
+```
+https://api.screenscraper.fr/api2/ssinfraInfos.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml
+```
+
+---
+
+## ssuserInfos.php
+
+**Informations sur l'utilisateur ScreenScraper**
+
+### Paramètres d'entrées
+
+- **devid** : votre identifiant développeur
+- **devpassword** : votre mot de passe développeur
+- **softname** : nom du logiciel appelant
+- **output** : xml(par defaut),json
+- **ssid** : identifiant ScreenScraper de l'utilisateur
+- **sspassword** : Mot de passe ScreenScraper de l'utilisateur
+
+### Elements Retournés
+
+Item : **ssuser** (informations utilisateurs ScreenScraper)
+
+- **id** : pseudo de l'utilisateur sur ScreenScraper
+- **numid** : identifiant numérique de l'utilisateur
+- **niveau** : niveau de l'utilisateur
+- **contribution** : niveau de contribution financière (2 = 1 Thread Supplémentaire / 3 et + = 5 Threads Supplémentaires)
+- **uploadsysteme** : Compteur de contributions valides (média de système)
+- **uploadinfos** : Compteur de contributions valides (infos texte)
+- **romasso** : Compteur de contributions valides (association de rom)
+- **uploadmedia** : Compteur de contributions valides (média de jeu)
+- **propositionok** : Nombre de propositions validées par un modérateur
+- **propositionko** : Nombre de propositions refusées par un modérateur
+- **quotarefu** : Pourcentage de refu de proposition
+
+**Threads**
+- **maxthreads** : Nombre de threads autorisés
+- **maxdownloadspeed** : Vitesse de téléchargement (en Ko/s) autorisée
+
+**Quotas**
+- **requeststoday** : Nombre d'appel total a l'api pendant la journée
+- **requestskotoday** : Nombre d'appel avec retour négatif
+- **maxrequestspermin** : Nombre d'appel maximum autorisé par minute
+- **maxrequestsperday** : Nombre d'appel maximum autorisé par jour
+- **maxrequestskoperday** : Nombre d'appel avec retour négatif maximum autorisé par jour
+- **visites** : nombre de visites
+- **datedernierevisite** : date de la dernière visite (format : yyyy-mm-jj hh:mm:ss)
+- **favregion** : région favorite (france,europe,usa,japon)
+
+### Exemple d'appel
+
+```
+https://api.screenscraper.fr/api2/ssuserInfos.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml&ssid=&sspassword=
+```
+
+---
+
+## systemesListe.php
+
+**Liste des systèmes / informations systèmes / informations médias systèmes**
+
+### Paramètres d'entrées
+
+- **devid** : votre identifiant développeur
+- **devpassword** : votre mot de passe développeur
+- **softname** : nom du logiciel appelant
+- **output** : xml(par defaut),json
+- **ssid** (non obligatoire) : identifiant ScreenScraper de l'utilisateur
+- **sspassword** (non obligatoire) : Mot de passe ScreenScraper de l'utilisateur
+
+### Elements Retournés
+
+Items : **systeme** (xml) / **systemes** (json)
+
+- **id** : identifiant numérique du système
+- **parentid** : identifiant numérique du système parent
+- **noms** : Noms du système par région
+- **extensions** : extensions des fichiers de roms utilisables
+- **compagnie** : Nom de la société de production
+- **type** : Type de système (Arcade,Console,Console Portable,Emulation Arcade,Flipper,Online,Ordinateur,Smartphone)
+- **datedebut** : Année de début de production
+- **datefin** : Année de fin de production
+- **romtype** : Type(s) de roms
+- **supporttype** : Type du ou des supports d'origines
+- **medias** : Médias du système (logos, wheels, photos, vidéos, bezels, backgrounds, etc.)
+
+### Exemple d'appel
+
+```
+https://api.screenscraper.fr/api2/systemesListe.php?devid=xxx&devpassword=yyy&softname=zzz&output=XML&ssid=test&sspassword=test
+```
+
+---
+
+## jeuInfos.php
+
+**Informations sur un jeu / Médias d'un jeu**
+
+### Paramètres d'entrées
+
+- **devid** : votre identifiant développeur
+- **devpassword** : votre mot de passe développeur
+- **softname** : nom du logiciel appelant
+- **output** : xml(par defaut),json
+- **ssid** (non obligatoire) : identifiant ScreenScraper de l'utilisateur
+- **sspassword** (non obligatoire) : Mot de passe ScreenScraper de l'utilisateur
+- **crc** : calcul crc du fichier rom/iso/dossier
+- **md5** : calcul md5 du fichier rom/iso/dossier
+- **sha1** : calcul sha1 du fichier rom/iso/dossier
+- **systemeid** : identifiant numérique du système
+- **romtype** : Type de "rom" : fichier rom unique / fichier iso unique / dossier
+- **romnom** : nom du fichier (avec extension) ou nom du dossier
+- **romtaille** : Taille en octet du fichier ou du dossier
+- **serialnum** : Forcer la recherche avec le numero de série
+- **gameid** : Forcer la recherche avec l'identifiant numérique du jeu
+
+### Elements Retournés
+
+Item : **jeu**
+
+- **id** : identifiant numérique du jeu
+- **romid** : identifiant numérique de la rom
+- **notgame** : (true/false) indique si la rom est assignée a un NON jeu
+- **nom** : Nom du jeu
+- **noms** : Noms du jeu par région
+- **cloneof** : ID du Clone
+- **systeme** : Informations sur le système
+- **editeur** : Nom de l'éditeur
+- **developpeur** : Nom du développeur
+- **joueurs** : Nombre de joueurs
+- **note** : Note sur 20
+- **synopsis** : Description du jeu par langue
+- **classifications** : Classifications du jeu
+- **dates** : Dates de sortie par région
+- **genres** : Genres du jeu
+- **modes** : Modes de jeu
+- **familles** : Familles du jeu
+- **themes** : Thèmes du jeu
+- **styles** : Styles du jeu
+- **medias** : Médias du jeu (screenshots, fanarts, vidéos, wheels, boitiers, supports, flyers, manuels, bezels)
+- **roms** : Liste des roms connues
+
+### Exemple d'appel
+
+```
+https://api.screenscraper.fr/api2/jeuInfos.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml&ssid=test&sspassword=test&crc=50ABC90A&systemeid=1&romtype=rom&romnom=Sonic%20The%20Hedgehog%202%20(World).zip&romtaille=749652
+```
+
+---
+
+## jeuRecherche.php
+
+**Recherche d'un jeu avec son nom (retourne une table de jeux limitée à 30 jeux classés par probabilité)**
+
+### Paramètres d'entrées
+
+- **devid** : votre identifiant développeur
+- **devpassword** : votre mot de passe développeur
+- **softname** : nom du logiciel appelant
+- **output** : xml(par defaut),json
+- **ssid** (non obligatoire) : identifiant ScreenScraper de l'utilisateur
+- **sspassword** (non obligatoire) : Mot de passe ScreenScraper de l'utilisateur
+- **systemeid** (non obligatoire) : identifiant numérique du système
+- **recherche** : nom du jeu recherché
+
+### Exemple d'appel
+
+```
+https://api.screenscraper.fr/api2/jeuRecherche.php?devid=xxx&devpassword=yyy&softname=zzz&output=xml&ssid=test&sspassword=test&systemeid=1&recherche=sonic
+```
+
+---
+
+## mediaJeu.php
+
+**Téléchargement des médias images des jeux**
+
+### Paramètres d'entrées
+
+- **devid** : votre identifiant développeur
+- **devpassword** : votre mot de passe développeur
+- **softname** : nom du logiciel appelant
+- **ssid** (non obligatoire) : identifiant ScreenScraper de l'utilisateur
+- **sspassword** (non obligatoire) : Mot de passe ScreenScraper de l'utilisateur
+- **crc** : calcul crc de l'image existante en local
+- **md5** : calcul md5 de l'image existante en local
+- **sha1** : calcul sha1 de l'image existante en local
+- **systemeid** : identifiant numérique du système
+- **jeuid** : identifiant numérique du jeu
+- **media** : identifiant texte du média à retourner
+
+### Paramètres de sortie
+
+- **maxwidth** (non obligatoire) : Largeur Maximum en pixels
+- **maxheight** (non obligatoire) : Hauteur Maximum en pixels
+- **outputformat** (non obligatoire) : Format de l'image : **png** ou **jpg**
+
+### Element Retourné
+
+- **Image PNG**
+- ou Texte **CRCOK** / **MD5OK** / **SHA1OK** si identique au serveur
+- ou Texte **NOMEDIA** si non trouvé
+
+### Exemple d'appel
+
+```
+https://api.screenscraper.fr/api2/mediaJeu.php?devid=xxx&devpassword=yyy&softname=zzz&ssid=test&sspassword=test&crc=&md5=&sha1=&systemeid=1&jeuid=3&media=wheel-hd(wor)
+```
+
+---
+
+## Liste des types de média
+
+| Type | Designation | Format | Région | Num Support | Multi-Version |
+|------|-------------|--------|--------|-------------|---------------|
+| sstitle | Screenshot Titre | jpg | obligatoire | | |
+| ss | Screenshot | jpg | obligatoire | | |
+| fanart | Fan Art | jpg | | | |
+| video | Vidéo | mp4 | | | |
+| overlay | Overlay | png | obligatoire | | |
+| steamgrid | Steam Grid | jpg | | | |
+| wheel | Wheel | png | obligatoire | | |
+| wheel-hd | Logos HD | png | obligatoire | | |
+| marquee | Marquee | png | | | |
+| screenmarquee | ScreenMarquee | png | obligatoire | | |
+| box-2D | Boitier : Avant | png | obligatoire | obligatoire | |
+| box-2D-side | Boitier : Tranche | png | obligatoire | obligatoire | |
+| box-2D-back | Boitier : Arrière | png | obligatoire | obligatoire | |
+| box-texture | Boitier : Texture | png | obligatoire | obligatoire | |
+| manuel | Manuel | pdf | obligatoire | | |
+| flyer | Flyer | jpg | obligatoire | obligatoire | |
+| maps | Maps | jpg | | | oui |
+| figurine | Figurine | png | | | |
+| support-texture | Support : Texture | png | obligatoire | obligatoire | |
+| bezel-4-3 | Bezel 4:3 Horizontal | png | obligatoire | | |
+| bezel-16-9 | Bezel 16:9 Horizontal | png | obligatoire | | |
+
+---
+
+## Autres requêtes
+
+Pour les autres requêtes (genresListe, famillesListe, regionsListe, languesListe, etc.), veuillez consulter la documentation complète sur le site de ScreenScraper.
+
+---
+
+*Documentation basée sur l'API Web v2 de ScreenScraper - https://www.screenscraper.fr*
+
+---
+
 ## 📖手绘笔记｜脑部血管解剖结构合集✅
 
 - **URL**: https://tangkai.me/posts/2026-09-07-手绘笔记-脑部血管解剖结构合集/
@@ -2700,7 +3518,7 @@ o 血压骤高→警惕脑出血、脑疝；血压暴跌→休克（低血压）
 
 ## 部署MinIO并通过NGINX反向代理
 
-- **URL**: https://tangkai.me/posts/部署minio并通过nginx反向代理/
+- **URL**: https://tangkai.me/posts/2026-02-07-部署minio并通过nginx反向代理/
 - **Published**: 2026-02-07
 - **Category**: Linux
 - **Tags**: Linux, Minio
