@@ -8,6 +8,12 @@ import {
 	type FancyboxConfig,
 	getDefaultFancyboxConfig,
 } from "./fancybox-config";
+// 自定义灯箱样式按需内联注入（?inline 打包进 JS，不生成独立 CSS 资源）：
+// 动态 import 的 src CSS 在某些构建器（rolldown-vite）下不会产出独立资源，
+// 但预加载引用仍保留在 chunk 里，运行时会 404 并中断 Fancybox 初始化。
+import fancyboxCustomCss from "../styles/fancybox-custom.css?inline";
+
+const FANCYBOX_CUSTOM_STYLE_ID = "shirone-fancybox-custom-css";
 
 // Fancybox 模块类型
 // biome-ignore lint/suspicious/noExplicitAny: Fancybox 模块动态加载，无精确类型
@@ -108,7 +114,18 @@ export class FancyboxHandler {
 		const mod = await import("@fancyapps/ui");
 		this.Fancybox = mod.Fancybox;
 		await import("@fancyapps/ui/dist/fancybox/fancybox.css");
-		await import("../styles/fancybox-custom.css");
+		this.injectCustomStyles();
+	}
+
+	/** 注入自定义灯箱样式（幂等：同一份样式只注入一次） */
+	private injectCustomStyles(): void {
+		if (document.getElementById(FANCYBOX_CUSTOM_STYLE_ID)) {
+			return;
+		}
+		const style = document.createElement("style");
+		style.id = FANCYBOX_CUSTOM_STYLE_ID;
+		style.textContent = fancyboxCustomCss;
+		document.head.appendChild(style);
 	}
 
 	/**
