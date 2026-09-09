@@ -10,6 +10,22 @@ const archiveSummary = `${sortedPostsList.length} ${i18n(I18nKey.postsCount)}`;
 ---
 
 <MainGridLayout title={i18n(I18nKey.archive)} description={archiveSummary} page="archive">
+    <!-- 静态站 SSR 预知不了筛选 query（?category= / ?tag= / ?uncategorized），直出的 HTML
+         恒为全量归档。带筛选参数时（首次解析或 swup 导航插入），本脚本在画面绘制前隐藏
+         SSR 的全量列表，等 ArchivePanel 水合、应用筛选后再解除（见 ArchivePanel onMount），
+         避免闪现全量归档后才切到筛选结果。 -->
+    <script is:inline>
+        (function () {
+            var params = new URLSearchParams(window.location.search);
+            if (!(params.get("category") || params.get("tag") || params.has("uncategorized"))) return;
+            var pending = document.getElementById("shirone-archive-filter-pending");
+            if (pending) pending.remove();
+            var style = document.createElement("style");
+            style.id = "shirone-archive-filter-pending";
+            style.textContent = ".archive-panel > * { visibility: hidden; }";
+            document.head.appendChild(style);
+        })();
+    </script>
     <ArchivePanel sortedPosts={sortedPostsList} client:visible></ArchivePanel>
 </MainGridLayout>
 

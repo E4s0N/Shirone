@@ -16,7 +16,7 @@ import { i18n } from "@i18n/translation";
 import Icon from "@iconify/svelte";
 import { formatCalendarDate } from "@utils/content-date";
 import { getPostUrlBySlug, url } from "@utils/url-utils";
-import { onMount } from "svelte";
+import { onMount, tick } from "svelte";
 
 interface Post {
 	slug: string;
@@ -165,12 +165,18 @@ const groups = $derived.by((): ArchiveGroup[] => {
 	);
 });
 
-onMount(() => {
+onMount(async () => {
 	const params = new URLSearchParams(window.location.search);
 	category = params.get("category") || "";
 	tag = params.get("tag") || "";
 	uncategorized = params.has("uncategorized");
 	readCollapsedState();
+	// 带筛选参数时，archive.astro 的防闪脚本会在水合前隐藏 SSR 的全量列表；
+	// 等筛选状态写入 DOM 后再解除隐藏，避免闪现与筛选无关的全量归档。
+	await tick();
+	for (const el of document.querySelectorAll("#shirone-archive-filter-pending")) {
+		el.remove();
+	}
 });
 
 $effect(() => {
