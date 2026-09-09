@@ -12,6 +12,7 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 ## Articles
 - [自建share微博客户端激活](https://tangkai.me/posts/share-activate/): 自建share微博客户端激活
 - [整理照片心得](https://tangkai.me/posts/photo-manage-experience/): 使用python脚本整理照片，按照月份分类整理
+- [抗抑郁药“五朵金花”：舍曲林、帕罗西汀、氟西汀、艾司西酞普兰](https://tangkai.me/posts/2026-09-09-抗抑郁药-五朵金花-舍曲林-帕罗西汀-氟西汀-艾司西酞普兰/)
 - [【指南】中国帕金森病治疗指南（第五版）](https://tangkai.me/posts/2026-09-08-指南-中国帕金森病治疗指南-第五版/)
 - [ScreenScraper WebAPI v2 文档（中文翻译）](https://tangkai.me/posts/2026-09-08-screenscraper-api-v2-cn/): ScreenScraper WebAPI v2 完整中文文档，用于在游戏前端中集成 ScreenScraper 数据和媒体资源。
 - [ScreenScraper WebAPI v2 Documentation](https://tangkai.me/posts/2026-09-08-screenscraper-api-v2-fr/): Documentation complète de l'API Web v2 de ScreenScraper pour l'intégration dans les front-ends gaming.
