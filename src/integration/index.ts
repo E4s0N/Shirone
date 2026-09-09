@@ -502,7 +502,9 @@ async function createBundledIntegrations(
 			preload: true,
 			accessibility: true,
 			updateHead: {
-				awaitAssets: false,
+				// 换页前等待目标页新增样式加载完成，避免首次进入某页时
+				// 内容先以未完成样式绘制、随后再应用样式的闪动（FOUC）。
+				awaitAssets: true,
 				persistTags: "link[rel=stylesheet], style",
 			},
 			updateBodyClass: false,
