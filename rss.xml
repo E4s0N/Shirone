@@ -612,6 +612,189 @@ if __name__ == &quot;__main__&quot;:
 &lt;p&gt;而中西医结合这条路，或许正是为许多苦苦寻觅出口的抑郁症患者，指向的那一道敞开的门。&lt;/p&gt;
 &lt;p&gt;&lt;em&gt;本文基于杨晓医生临床经验整理，仅供专业参考与公众科普，不构成具体医疗建议。任何药物的使用与调整，请务必在专业医生的指导下进行。&lt;/em&gt;&lt;/p&gt;
 &lt;p&gt;&lt;img src=&quot;./pic/image-236f9ab46e12cd52.jpg&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+</content:encoded></item><item><title>无需脚本！Magisk 模块屏蔽安卓开机音效：原理+实操</title><link>https://tangkai.me/posts/2025-12-20-%E6%97%A0%E9%9C%80%E8%84%9A%E6%9C%AC-magisk%E6%A8%A1%E5%9D%97%E5%B1%8F%E8%94%BD%E5%AE%89%E5%8D%93%E5%BC%80%E6%9C%BA%E9%9F%B3%E6%95%88-/</link><guid isPermaLink="true">https://tangkai.me/posts/2025-12-20-%E6%97%A0%E9%9C%80%E8%84%9A%E6%9C%AC-magisk%E6%A8%A1%E5%9D%97%E5%B1%8F%E8%94%BD%E5%AE%89%E5%8D%93%E5%BC%80%E6%9C%BA%E9%9F%B3%E6%95%88-/</guid><pubDate>Wed, 09 Sep 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;无需脚本！Magisk 模块屏蔽安卓开机音效：原理+实操&lt;/h1&gt;
+&lt;p&gt;‍&lt;/p&gt;
+&lt;h3&gt;前言：折腾中发现的「极简方案」&lt;/h3&gt;
+&lt;p&gt;近日入手了一个二手的行车记录仪，准备安装在电动车上。这个机器一共48块，安卓6.0系统，可以安装高德导航&lt;/p&gt;
+&lt;p&gt;我曾尝试过多种屏蔽开机音效的方法：修改系统文件、刷入自定义 ROM，但遇到system分区无法修改，system解包后，打包刷入卡第一屏等问题。直到偶然发现一个「躺平式方案」：&lt;strong&gt;仅在 Magisk 模块中放一个空文件，就能彻底屏蔽开机音效&lt;/strong&gt;，无需一行脚本，稳定适配所有机型。&lt;/p&gt;
+&lt;p&gt;这篇文章就拆解这个方案的底层逻辑，同时带你搞懂 Magisk 模块的核心生效流程 —— 原来 Magisk 设计的初衷，就是让「文件替换」这类需求变得如此简单。&lt;/p&gt;
+&lt;h2&gt;一、实操：5 分钟制作「屏蔽开机音效」Magisk 模块&lt;/h2&gt;
+&lt;p&gt;先上干货！无需复杂工具，纯手动就能制作模块，全程 5 分钟搞定。&lt;/p&gt;
+&lt;h3&gt;1. 准备工具&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;电脑（Windows/Linux/Mac 均可）&lt;/li&gt;
+&lt;li&gt;压缩软件（支持 ZIP 格式，如 WinRAR、7-Zip）&lt;/li&gt;
+&lt;li&gt;已刷入 Magisk 的安卓设备（需解锁 Bootloader）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;2. 模块文件结构（严格按此创建）&lt;/h3&gt;
+&lt;p&gt;这是模块能生效的核心！创建一个文件夹（命名为 ​&lt;code&gt;DisableBootSound&lt;/code&gt;），内部结构如下：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;DisableBootSound/
+
+├── META-INF/
+
+│   └── com/
+
+│       └── google/
+
+│           └── android/
+
+│               ├── update-binary  # 空文件即可
+
+│               └── updater-script # 空文件即可
+
+├── module.prop  # 模块属性（Magisk识别用）
+
+└── system/
+
+    └── media/
+
+        └── bootaudio.mp3  # 关键：空文件，用于替换原音效
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3&gt;3. 填写核心文件内容&lt;/h3&gt;
+&lt;h4&gt;（1）module.prop（必须，Magisk 识别模块的身份证）&lt;/h4&gt;
+&lt;p&gt;在 ​&lt;code&gt;module.prop&lt;/code&gt; 中填写以下内容（直接复制粘贴，可修改作者 / 描述）：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;id=disable\_boot\_sound  # 模块唯一ID（小写无空格）
+
+name=屏蔽开机音效      # 模块名称（显示在Magisk App中）
+
+version=1.0            # 版本号
+
+versionCode=1          # 版本代码（纯数字，升级用）
+
+author=你的昵称        # 作者名称
+
+description=无需脚本！通过文件替换屏蔽开机音效，适配所有安卓设备
+
+minMagisk=24.0         # 最低兼容Magisk版本
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4&gt;（2）其他空文件说明&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;update-binary&lt;/code&gt;​ 和 ​&lt;code&gt;updater-script&lt;/code&gt;：新建空文本文件，重命名为对应名称即可（Magisk 仅需识别存在，无需内容）；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;bootaudio.mp3&lt;/code&gt;​：新建空文本文件，重命名为 ​&lt;code&gt;bootaudio.mp3&lt;/code&gt;（无需任何内容，大小为 0KB）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;4. 打包模块 &amp;amp; 安装生效&lt;/h3&gt;
+&lt;h4&gt;（1）正确打包（关键！避免嵌套）&lt;/h4&gt;
+&lt;ul&gt;
+&lt;li&gt;进入 ​&lt;code&gt;DisableBootSound&lt;/code&gt; 文件夹内部；&lt;/li&gt;
+&lt;li&gt;全选所有文件（​&lt;code&gt;META-INF&lt;/code&gt;​、​&lt;code&gt;module.prop&lt;/code&gt;​、​&lt;code&gt;system&lt;/code&gt;）；&lt;/li&gt;
+&lt;li&gt;右键 → 压缩为 ZIP 包（命名为 ​&lt;code&gt;DisableBootSound.zip&lt;/code&gt;）；&lt;/li&gt;
+&lt;li&gt;❌ 错误：不要把外层文件夹一起压缩（否则 Magisk 识别不到文件）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4&gt;（2）安装步骤&lt;/h4&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;用 ADB 传输 ZIP 包到手机：​&lt;code&gt;adb push DisableBootSound.zip /sdcard/&lt;/code&gt;；&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;打开 Magisk App → 模块 → 右下角「+」→ 选择 ​&lt;code&gt;/sdcard/&lt;/code&gt; 目录下的 ZIP 包；&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;点击「重启设备」，重启后开机音效即可屏蔽。&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;image1.webp&quot; alt=&quot;2025-12-20_18-25-25&quot; /&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2&gt;二、为什么空文件替换能成功？Magisk 核心机制拆解&lt;/h2&gt;
+&lt;p&gt;很多人会疑惑：没有脚本、没有权限修改，为什么一个空文件就能生效？答案是 Magisk 的「无修改挂载替换」机制 —— 这是 Magisk 最核心的能力，也是模块能安全生效的关键。&lt;/p&gt;
+&lt;h3&gt;核心逻辑：挂载覆盖，而非修改系统&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;安卓系统的 ​&lt;code&gt;/system&lt;/code&gt; 分区默认是「只读」的，Magisk 不会直接修改其中的文件（避免破坏系统完整性）；&lt;/li&gt;
+&lt;li&gt;你安装模块后，Magisk 会将模块内 ​&lt;code&gt;system/&lt;/code&gt; 目录的文件，「挂载」到真实系统的对应路径上；&lt;/li&gt;
+&lt;li&gt;挂载时机是「系统启动极早期」（早于开机音效播放），所以系统读取的是模块的空文件，而非原始音效文件。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;简单理解：Magisk 相当于在系统和原始文件之间，加了一层「虚拟遮罩」，系统看到的是遮罩上的文件（你的空文件），原始文件被完好保留在系统分区中。&lt;/p&gt;
+&lt;h3&gt;对比脚本方案：为什么纯文件替换更优？&lt;/h3&gt;
+&lt;p&gt;之前尝试的脚本方案，其实是「画蛇添足」—— 纯文件替换才是 Magisk 官方推荐的极简方案，优势明显：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;对比维度&lt;/th&gt;
+&lt;th&gt;纯文件替换（你的方案）&lt;/th&gt;
+&lt;th&gt;脚本方案&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;复杂度&lt;/td&gt;
+&lt;td&gt;极低（无需写代码）&lt;/td&gt;
+&lt;td&gt;较高（需处理权限 / 延迟）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;稳定性&lt;/td&gt;
+&lt;td&gt;极高（依赖 Magisk 原生机制）&lt;/td&gt;
+&lt;td&gt;易出问题（脚本报错 / 时机不对）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;兼容性&lt;/td&gt;
+&lt;td&gt;全版本适配&lt;/td&gt;
+&lt;td&gt;依赖脚本语法 / Magisk 版本&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;生效时机&lt;/td&gt;
+&lt;td&gt;更早（post-fs-data 阶段）&lt;/td&gt;
+&lt;td&gt;较晚（service.sh 阶段）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2&gt;三、Magisk 模块完整生效流程（从安装到开机）&lt;/h2&gt;
+&lt;p&gt;想彻底搞懂 Magisk，就必须了解模块从「安装」到「生效」的全流程 —— 你的模块之所以能成功，正是踩中了每个关键节点。&lt;/p&gt;
+&lt;h3&gt;完整流程拆解（5 个阶段）&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;flowchart TD
+    A[安装模块] --&amp;gt; B[Magisk验证合法性（检查module.prop）]
+    B --&amp;gt; C[解压模块到/data/adb/modules/模块ID/]
+    C --&amp;gt; D[系统重启]
+    D --&amp;gt; E[Magisk初始化（早于系统启动）]
+    E --&amp;gt; F[post-fs-data阶段：挂载模块文件]
+    F --&amp;gt; G[系统启动，读取挂载后的空文件]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4&gt;关键阶段详解&lt;/h4&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;安装验证&lt;/strong&gt;：Magisk 只认 ​&lt;code&gt;module.prop&lt;/code&gt;，有这个文件才会识别为合法模块；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;解压存储&lt;/strong&gt;：模块被解压到 ​&lt;code&gt;/data/adb/modules/&lt;/code&gt; 目录（Magisk 专属分区，不占系统空间）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;重启初始化&lt;/strong&gt;：手机重启时，Magisk 先于安卓系统启动（相当于「系统引导员」）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;核心挂载&lt;/strong&gt;：​&lt;code&gt;post-fs-data&lt;/code&gt;​ 阶段（系统分区挂载后，系统进程启动前），Magisk 将模块内 ​&lt;code&gt;system/&lt;/code&gt; 目录的文件挂载到真实系统路径；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;系统启动&lt;/strong&gt;：安卓系统正常启动，播放开机音效时读取的是挂载后的空文件，无声音输出。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;卸载模块后为什么能恢复？&lt;/h3&gt;
+&lt;p&gt;因为 Magisk 只是「挂载覆盖」，没有修改原始系统文件 —— 卸载模块后，挂载关系消失，系统会重新读取原始的 ​&lt;code&gt;bootaudio.mp3&lt;/code&gt;，开机音效自然恢复。这也是 Magisk 比 Xposed 等框架更安全的原因：不会破坏系统分区，卸载模块即恢复原状。&lt;/p&gt;
+&lt;h2&gt;四、扩展：这种方案能用到哪些场景？&lt;/h2&gt;
+&lt;p&gt;纯文件替换的 Magisk 模块，不仅适用于屏蔽开机音效，还能解决很多「静态文件修改」类需求，比如：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;修改系统属性&lt;/strong&gt;：在模块 ​&lt;code&gt;system/build.prop&lt;/code&gt; 中添加 / 修改系统属性（如修改机型、分辨率）；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;替换系统图标&lt;/strong&gt;：替换模块 ​&lt;code&gt;system/media/icons/&lt;/code&gt; 下的图标文件，自定义系统图标；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;屏蔽预装软件&lt;/strong&gt;：在模块 ​&lt;code&gt;system/app/&lt;/code&gt;​ 或 ​&lt;code&gt;system/priv-app/&lt;/code&gt; 下放置对应软件的空文件夹，覆盖原始应用；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;替换字体&lt;/strong&gt;：在模块 ​&lt;code&gt;system/fonts/&lt;/code&gt; 下放置自定义字体文件，替换系统默认字体。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这些场景的核心逻辑和屏蔽开机音效一致：利用 Magisk 的挂载机制，用模块内的文件覆盖系统文件，实现无修改定制。&lt;/p&gt;
+&lt;h2&gt;五、常见问题排查&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;Magisk 提示「this zip is not a magisk module」&lt;/strong&gt; ：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;检查 ​&lt;code&gt;module.prop&lt;/code&gt; 是否在 ZIP 包根目录；&lt;/li&gt;
+&lt;li&gt;检查 ZIP 包是否嵌套外层文件夹（需直接压缩内部文件）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;安装后开机音效仍存在&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;确认模块内文件路径是否正确（​&lt;code&gt;system/media/bootaudio.mp3&lt;/code&gt;）；&lt;/li&gt;
+&lt;li&gt;检查 ​&lt;code&gt;bootaudio.mp3&lt;/code&gt; 是否为真空中文件（大小 0KB）；&lt;/li&gt;
+&lt;li&gt;重启设备（模块需重启生效）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;卸载模块后音效未恢复&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;进入 Magisk App → 模块 → 确认模块已卸载；&lt;/li&gt;
+&lt;li&gt;手动删除 ​&lt;code&gt;/system/media/bootaudio.mp3&lt;/code&gt;（若仍为空白文件），系统会自动恢复原始文件。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;总结&lt;/h2&gt;
+&lt;p&gt;屏蔽开机音效的极简方案，本质是利用了 Magisk 最核心的「挂载替换」机制 —— 无需脚本、无需复杂操作，仅用一个空文件就能实现功能，这正是 Magisk 设计的精妙之处：&lt;strong&gt;以不修改系统的方式，实现对系统的定制&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这种纯文件替换的模块，不仅简单稳定，还能迁移到很多场景，是每个安卓折腾党必备的基础技巧。如果你有其他想通过 Magisk 实现的功能（如修改开机动画、屏蔽广告），都可以尝试用这种「文件覆盖」的思路解决～&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;（注：文档部分内容可能由 AI 生成）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;‍&lt;/p&gt;
 </content:encoded></item><item><title>【指南】中国帕金森病治疗指南（第五版）</title><link>https://tangkai.me/posts/2026-09-08-%E6%8C%87%E5%8D%97-%E4%B8%AD%E5%9B%BD%E5%B8%95%E9%87%91%E6%A3%AE%E7%97%85%E6%B2%BB%E7%96%97%E6%8C%87%E5%8D%97-%E7%AC%AC%E4%BA%94%E7%89%88/</link><guid isPermaLink="true">https://tangkai.me/posts/2026-09-08-%E6%8C%87%E5%8D%97-%E4%B8%AD%E5%9B%BD%E5%B8%95%E9%87%91%E6%A3%AE%E7%97%85%E6%B2%BB%E7%96%97%E6%8C%87%E5%8D%97-%E7%AC%AC%E4%BA%94%E7%89%88/</guid><pubDate>Tue, 08 Sep 2026 10:59:59 GMT</pubDate><content:encoded>&lt;h2&gt;点击标题下「蓝色微信名」可快速关注&lt;/h2&gt;
 &lt;blockquote&gt;
 &lt;p&gt;**文章来源：**中华神经科杂志, 2026, 59(06): 539-566.&lt;/p&gt;
