@@ -5,550 +5,98 @@
   <link href="https://tangkai.me/" rel="alternate" type="text/html"/>
   <link href="https://tangkai.me/atom.xml" rel="self" type="application/atom+xml"/>
   <id>https://tangkai.me/</id>
-  <updated>2026-09-09T01:08:05.318Z</updated>
+  <updated>2026-09-12T16:16:58.896Z</updated>
   <entry>
-    <title>自建share微博客户端激活</title>
-    <link href="https://tangkai.me/posts/share-activate/" rel="alternate" type="text/html"/>
-    <id>https://tangkai.me/posts/share-activate/</id>
-    <published>2025-10-16T00:00:00.000Z</published>
-    <updated>2025-10-16T00:00:00.000Z</updated>
-    <summary>自建share微博客户端激活</summary>
-    <content type="html"><![CDATA[<h1>自建 Share 微博客户端激活</h1>
-<p>在路由器某个目录下创建一个nginx 的docker compose文件（使用macvlan，分配一个单独的ip 192.168.2.3，这样可以使用默认80和443端口）：</p>
-<pre><code>version: '3.8'
-services:
-  app:
-    image: 'nginx:latest'
-    restart: unless-stopped
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./html:/usr/share/nginx/html
-    networks:
-      macvlan:
-        ipv4_address: 192.168.2.3
-
-networks:
-  macvlan:
-    external: true
-    name: macvlan
-</code></pre>
-<p>在目录下创建nginx.conf</p>
-<pre><code># 全局块
-user nginx;                          # 指定 Nginx 工作进程运行的用户
-worker_processes auto;               # 指定工作进程的数量，auto 表示根据 CPU 核心数自动调整
-error_log /var/log/nginx/error.log;  # 指定错误日志文件的位置
-pid /run/nginx.pid;                  # 指定 Nginx 的 PID 文件位置
- 
-# events 块
-events {
-    worker_connections 1024;         # 每个工作进程的最大连接数
-    # use epoll;                     # 指定使用的事件驱动模型，epoll 是 Linux 下的高效模型
-}
- 
-# http 块
-http {
-    include /etc/nginx/mime.types;   # 包含 MIME 类型定义文件
-    default_type application/octet-stream;
- 
-    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                    '$status $body_bytes_sent "$http_referer" '
-                    '"$http_user_agent" "$http_x_forwarded_for"';
- 
-    access_log /var/log/nginx/access.log main;  # 指定访问日志文件的位置和格式
- 
-    sendfile on;                     # 开启高效文件传输模式
-    tcp_nopush on;                   # 开启 TCP_NOPUSH 选项，减少 TCP 包的数量
-    tcp_nodelay on;                  # 开启 TCP_NODELAY 选项，立即发送数据
- 
-    keepalive_timeout 65;            # 设置长连接的超时时间
- 
-    # server 块（虚拟主机配置）
-    server {
-        listen 80;                   # 监听的端口
-        server_name localhost;       # 服务器名称
- 
-        # location 块（处理特定路径的请求）
-        location / {
-            root /usr/share/nginx/html;  # 网站根目录
-            index index.html index.htm; # 默认索引文件
-        }
-		# 激活配置块
-	    location /activecode/bind {
-	        # 设置响应头，表明返回的是 JSON 数据
-	        add_header Content-Type application/json;
-
-	        # 返回 JSON 数据
-	        return 200 '{
-	            "code": 0,
-	            "data": {
-	                "code": "鸡仔YYDS",
-	                "activated": true,
-	                "orderId": "",
-	                "activeCount": 0,
-	                "timestamp": 32472115200000,
-	                "s_expire": false
-	            }
-	        }';
-	    }
-
-        # 错误页面配置
-        error_page 404 /404.html;
-        location = /404.html {
-            root /usr/share/nginx/html;
-        }
- 
-        error_page 500 502 503 504 /50x.html;
-        location = /50x.html {
-            root /usr/share/nginx/html;
-        }
-    }
-}
-</code></pre>
-<p>执行<code>docker compose up -d</code>，然后把路由器中的api.yuhengye.com 重定向到 192.168.2.3，即可在手机上输入任意验证码激活成功！</p>
+    <title>「帕金森病」和「帕金森综合征」如何区分？3 张表帮你总结好了</title>
+    <link href="https://tangkai.me/posts/2026-09-13-%E5%B8%95%E9%87%91%E6%A3%AE%E7%97%85-%E5%92%8C-%E5%B8%95%E9%87%91%E6%A3%AE%E7%BB%BC%E5%90%88%E5%BE%81-%E5%A6%82%E4%BD%95%E5%8C%BA%E5%88%86-3-%E5%BC%A0%E8%A1%A8%E5%B8%AE%E4%BD%A0%E6%80%BB%E7%BB%93%E5%A5%BD%E4%BA%86/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-13-%E5%B8%95%E9%87%91%E6%A3%AE%E7%97%85-%E5%92%8C-%E5%B8%95%E9%87%91%E6%A3%AE%E7%BB%BC%E5%90%88%E5%BE%81-%E5%A6%82%E4%BD%95%E5%8C%BA%E5%88%86-3-%E5%BC%A0%E8%A1%A8%E5%B8%AE%E4%BD%A0%E6%80%BB%E7%BB%93%E5%A5%BD%E4%BA%86/</id>
+    <published>2026-09-12T16:16:58.896Z</published>
+    <updated>2026-09-12T16:16:58.896Z</updated>
+    <summary></summary>
+    <content type="html"><![CDATA[<p><img src="./pic/image-4dfec09ae7335711.jpg" alt="" /></p>
+<p>帕金森综合征的诊断需要基于 3 个核心运动症状：必备运动迟缓和至少存在静止性震颤或肌强直 2 项症状的 1 项，同时上述症状必须是显而易见的，且与其他干扰因素无关。</p>
+<p>能引起帕金森综合征的疾病有数十种，临床医生需要根据患者的临床表现、发病特点、体格检查等进行综合分析，抽丝剥茧，最终确诊甚至需要数年的随访跟踪，因此了解引起帕金森综合征的相关疾病，对临床医生极为重要。</p>
+<p>面对帕金森综合征患者，我们需要从四个方面进行评估：</p>
+<h2></h2>
+<p> <strong>01</strong> </p>
+<p><strong>起病特征：看发病是否具有「对称性」</strong></p>
+<p>帕金森病的典型特点是症状从一侧肢体开始，缓慢发展至对侧，呈「非对称性」发展。而药物性、代谢性（如 wilson 病）、副肿瘤性帕金森综合征的表现多呈对称性发病。</p>
+<h2></h2>
+<p> <strong>02</strong> </p>
+<p><strong>进展速度：看病程的「时间轴」</strong></p>
+<p>帕金森病、多系统萎缩、进行性核上性麻痹等神经退行性疾病，呈缓慢进展，病程以年来计算。而药物性、副肿瘤性、感染/炎症后帕金森综合征，呈亚急性/快速进展，病程以周或月计算。</p>
+<h2></h2>
+<p> <strong>03</strong> </p>
+<p><strong>伴随症状：看伴随症状的「组合」</strong></p>
+<p>路易体痴呆多表现为帕金森综合征、认知障碍以及视幻觉；</p>
+<p>多系统萎缩则表现为帕金森症状综合征合并严重自主神经功能紊乱；</p>
+<p>进行性核上性麻痹则表现为帕金森综合征合并垂直凝视障碍；</p>
+<p>皮质基底节变性则表现为帕金森病综合征合并不对称的皮层体征（失用、忽略、肌阵挛）。</p>
+<h2></h2>
+<p> <strong>04</strong> </p>
+<p><strong>治疗反应：看左旋多巴制剂的治疗「效果」</strong></p>
+<p>帕金森病患者使用左旋多巴制剂后症状通常有明显且持久的改善，而其他类型的帕金森综合征患者对左旋多巴制剂反应往往不佳或效果短暂。</p>
+<p><strong>根据上述 4 点，我们可以基本判断患者帕金森综合征的大致类型，但鉴别常见帕金森综合征的疾病仍需掌握以下内容：</strong></p>
+<p>➤ 原发性帕金森病</p>
+<p>原发性帕金森病，简称为帕金森病（PD），是发生于中老年人群的神经系统变性疾病，隐袭起病，进展缓慢，其特征性病理改变为黑质多巴胺能神经元进行性退变减少和路易小体形成，导致纹状体区多巴胺递质减少，从而临床上出现运动迟缓、静止性震颤、肌强直和姿势平衡障碍等特征性症状，同时伴各种非运动症状，如嗅觉障碍、便秘、睡眠障碍等。</p>
+<p>原发性帕金森病以不对称起病和对左旋多巴反应良好为特点。但需要特别关注非运动症状，如嗅觉减退、快速眼动期睡眠行为障碍（RBD），这些常早于运动症状出现，是重要的预警信号。准确诊断帕金森病，需要掌握支持标准和绝对排除标准以及警示征象，是一个动态随访的过程。</p>
+<p>▲上下滑动查看▼</p>
+<p>➤ 药物性帕金森综合征</p>
+<p>药源性帕金森综合征（DIP）是指使用可能导致纹状体内多巴胺递质含量减少或使多巴胺受体阻滞的药物后出现的表现为运动障碍、震颤、自主神经功能紊乱等一系列帕金森临床表现的综合征，是继发性帕金森综合征的常见类型。</p>
+<p>DIP 通常表现为少动/迟缓和僵直，进展迅速。临床震颤少见，一般表现为双侧上肢的姿势/动作性震颤。老年女性多见；从服药到发病平均时间为 3～4 个月，短者数天、数周，长者可达 1～2 年；发病后病情进展较为迅速，症状常左右对称；常伴有呆滞、抑郁、焦躁等精神症状及静坐不能；症状常为可逆性，一旦终止服用相关药物，多数症状可在几周内减轻，1～3 个月消失，也有持续 1 年者；服用抗帕金森病的药物如左旋多巴很难奏效，抗胆碱能药物治疗有效。</p>
+<p>常见引起 DIP 的药物有抗精神病药（氯丙嗪，奋乃静、奥氮平，利培酮）、偏头痛预防药（氟桂利嗪）、止吐药（甲氧氯普胺、多潘立酮）、  降压药（利血平）、抗躁狂药（碳酸锂）、抗癫痫药（丙戊酸钠，苯妥英钠，左乙拉西坦）、  抗心绞痛药（维拉帕米，地尔硫卓）、抗心律失常药（胺碘酮）、抗抑郁药（阿米替林、氟西汀、舍曲林）、抗真菌药（两性霉素 B）。</p>
+<p>▲上下滑动查看▼</p>
+<p>➤ 血管性帕金森综合征</p>
+<p>血管性帕金森综合征（VP）是一种由脑血管病变引起的帕金森综合征。又称「下半身帕金森综合征」，以双下肢步态障碍为主要表现的帕金森综合征。VP 是一种异质性的帕金森综合征，其发病年龄平均晚于 PD 4～10 年，病程较 PD 短，且男性多于女性，隐匿起病，呈进行性发展。</p>
+<p>分为三种类型：</p>
+<p>1、卒中后急性或亚急性起病的 VP 亚型：于卒中后急性起病或 1 年内逐渐发病，主要由黑质或黑质纹状体通路病变损伤引起。表现为对侧肢体帕金森综合征的急性或亚急性发作，典型的症状不对称，非进展性，并对多巴胺能药物起反应。</p>
+<p>2、最常见的隐匿性起病的 VP 亚型：由皮质下脑白质损害引起，以进展性帕金森综合征多见，伴随显著的姿势不稳、步态损伤，僵硬以下肢为重，存在上运动神经元体征（上肢症状较少出现）、假性延髓性麻痹、皮质脊髓症、吞咽困难、构音障碍、认知和泌尿系统症状以及对多巴胺能药物反应不良。</p>
+<p>3、VP 与 PD 或其他神经变性疾病导致的混合重叠的帕金森综合征：存在脑血管疾病的影像学证据，同时在临床诊断标准上符合 PD、弥漫性路易小体病、进行性核上性麻痹、多系统萎缩、皮质基底节综合征。目前，VP 尚无特异性治疗方法。</p>
+<p>▲上下滑动查看▼</p>
+<p>➤ 多系统萎缩</p>
+<p>多系统萎缩 (MSA) 是一种成年起病的严重的神经系统退行性疾病，临床表现为进展性自主神经功能衰竭和帕金森症状、小脑症状的不同组合，病理生理学以纹状体和橄榄脑桥小脑系统中胶质细胞包涵体形成和神经元丢失为主要表现。分为 MSA-帕金森型 (MSA-P) 和 MSA-小脑型 (MSA-C)，两者之间的区别取决于主要的运动表型，以帕金森样症状为突出表现的为 MSA-P 亚型，以小脑性共济失调症状为突出表现的为 MSA-C 亚型。</p>
+<p>➤ 路易体痴呆</p>
+<p>路易体痴呆（DLB）是一种常见的神经退行性疾病，其特征是波动性认知障碍、帕金森病（PD）样症状、反复生动的视幻觉和快速眼动睡眠行为障碍（RBD）。</p>
+<p>诊断 DLB 的必要条件是出现痴呆，即出现进行性认知功能减退，且其严重程度足以影响患者的正常的社会和职业功能。有时注意力、执行功能和视觉功能的损害可能会早期出现，却并不一定出现显著或持续的记忆功能障碍。</p>
+<p>但是，随着疾病的进展，记忆障碍会变得非常明显。这类患者不仅有动作缓慢，还常有生动的视幻觉和明显的认知波动——时好时坏。他们对某些抗精神病药物特别敏感，小剂量就可能引起严重副作用。治疗上，改善认知功能的药物可能比抗帕金森药物更重要。</p>
+<p>▲上下滑动查看▼</p>
+<p>了解了上述常见帕金森综合征的疾病，我们也需要知道以下这些治疗可治的疾病：</p>
+<p>➤ 肝豆状核变性（Wilson 病）</p>
+<p>肝豆状核变性（HLD）又称 Wilson 病，是一种常染色体隐性遗传的铜代谢障碍疾病，其致病基因 ATP7B 编码一种铜转运 P 型 ATP 酶，该基因的致病变异导致 ATP 酶的功能缺陷或丧失，造成胆道排铜障碍。</p>
+<p>大量铜蓄积于肝、脑、肾、骨关节、角膜等组织和脏器，患者出现肝脏损害、神经精神表现、肾脏损害、骨关节病及角膜色素环（K-F 环）等表现。</p>
+<p>肝脏受累为主要表现的 Wilson 病发病相对较早（&gt; 2 岁就可能发病），神经系统病变常较肝病晚 10 年出现（通常 &gt; 15 岁），女性患者可出现月经失调、不孕或反复流产等。Wilson 病的治疗应遵循早期治疗，终身治疗，终身监测原则。</p>
+<h2>40 岁以前出现帕金森综合征的患者必须筛查肝豆状核变性（Wilson 病）。Wilson 病是可用药物治疗的遗传代谢性疾病，其长期预后取决于治疗的早晚。</h2>
+<p>▲上下滑动查看▼</p>
+<p>➤ 多巴反应性肌张力障碍</p>
+<p>多巴反应性肌张力障碍（DRD），是一组好发于儿童或青少年，以肌张力障碍或步态异常为首发症状的少见的遗传性疾病。</p>
+<p>其临床特点为症状的昼间波动性，以及小剂量多巴制剂对其有快速、明显的疗效。DRD 发病年龄多在 1～12 岁，占儿童肌张力障碍的 10%，少数患者可晚至 50～60 岁。</p>
+<ul>
+<li>
+<p>儿童起病者，临床多以一侧下肢肌张力异常为首发症状，患儿出现怪异步态、下肢僵硬、步态不稳、马蹄内翻足等。有时仅表现学走路较迟，易摔倒，随病情发展，肌张力异常影响到其他肢体，甚至头颈部及身体中轴，出现痉挛性斜颈、扭转痉挛。患儿可有肢体震颤、肌强直及自动 Babinske 征阳性，语言及智能一般不受累。</p>
+</li>
+<li>
+<p>成人起病者，临床以肢体不自主震颤、僵硬感等类似帕金森综合征表现多见。患者行动迟缓，易疲劳，肢体肌张力增高，腱反射亢进，病理征阳性。75% 患者症状有昼夜波动性，晨起或休息后明显减轻甚而消失，下午或劳累后症状加重。多数病程呈进展性，未经治疗者，最终生活不能自理。</p>
+</li>
+</ul>
+<p>▲上下滑动查看▼</p>
+<p>➤ 正常颅压脑积水</p>
+<p>正常颅压性脑积水（NPH）是指以步态不稳、认知功能障碍和尿失禁为典型临床表现，痴呆只是这种特殊脑积水的一个临床表现，影像学检查具有脑室扩大，而脑脊液压力测定在正常范围内的一组临床综合征，可分为特发性和继发性两大类。目前，NPH 被认为是可治性痴呆，脑脊液分流术是公认的有效治疗方法，术后可使 50%～90% 的患者症状得到不同程度的改善。</p>
+<p>帕金森综合征的诊疗需要临床医生具备系统的鉴别诊断思维，本文总结了各种帕金森综合征的特点（见表格），有助于临床医生熟悉各类疾病的特征性表现，合理运用辅助检查，最终实现精准诊断和个体化治疗。</p>
+<p>表 1 </p>
+<p><img src="./pic/image-cbd9452770db81dc.png" alt="" /></p>
+<p>表 2</p>
+<p><img src="./pic/image-baf05ecd58124d23.jpg" alt="" /></p>
+<p>表 3 </p>
+<p><img src="./pic/image-15e8677c865e0c16.jpg" alt="" /></p>
+<p>欢迎投稿 | wuwanqing@dxy.cn</p>
+<p>参考文献：</p>
+<p>(1)中华医学会神经病学分会帕金森病及运动障碍学组,中国医师协会神经内科医师分会帕金森病及运动障碍专业.中国帕金森病的诊断标准(2016版)[J].中华神经科杂志,2016,49(4):268-271.</p>
+<p>(2)唐北沙，李延峰.《神经变性病学》，人民卫生出版社，2021年9月版.</p>
+<p>(3)白浪飞.帕金森综合征的诊治分析[C].2016全国慢性病诊疗论坛论文集.2016:135-136.</p>
+<p><img src="./pic/image-f359e2d913e699a4.png" alt="" /></p>
 ]]></content>
     <author><name>TangKai</name></author>
-    <category term="使用指南"/>
-  </entry>
-  <entry>
-    <title>整理照片心得</title>
-    <link href="https://tangkai.me/posts/photo-manage-experience/" rel="alternate" type="text/html"/>
-    <id>https://tangkai.me/posts/photo-manage-experience/</id>
-    <published>2025-09-09T00:00:00.000Z</published>
-    <updated>2025-09-09T00:00:00.000Z</updated>
-    <summary>使用python脚本整理照片，按照月份分类整理</summary>
-    <content type="html"><![CDATA[<h2>一、前言</h2>
-<p>近日在整理以前拍的照片，想做一本相册，中间遇到了许多坑，记录一下。</p>
-<h2>二、找到旧照片原图</h2>
-<p>首先是找到旧的照片，由于换了好几部手机，从红米K20Pro→K30s→小米11 Ultra→小米15，在2021年以前，由于没有整NAS，都是定期手动备份到机械硬盘里面。2021年以后有了NAS以后，就变懒了，都让软件自动上传到NAS上，还有一份小米云同步自动同步。问题恰恰就出在这里，由于以前的手机有的是128g，有的是256g，到后面手机存储空间就不够了，不知怎么，小米把本地手机里面的原图删了，换成了压缩后的图片。就这样，NAS中的原图也被替换成了压缩后的图片。这挺恶心的，近日整理照片的时候才发现原图没了。最后想到的解决办法是从小米云同步上把以前的照片下载下来，这是个大坑，这软件的PC端非常卡，体验非常不好。最后我选择整个相册都下载，只能烧一点小米CDN的流量来泄愤了。</p>
-<h2>三、按照月份分类整理照片</h2>
-<p>其次是按照月份分类整理照片，我的方法是年份-月份-相册名,</p>
-<pre><code>    ├─2021-01
-    │  ├─Camera
-    │  ├─Picture
-    │  ├─ScreenShot
-    │  ├─Video
-    │  └─WeiXin
-    ├─2021-02
-    │  ├─Camera
-    │  ├─Picture
-    │  ├─ScreenShot
-    │  ├─Video
-    │  └─WeiXin
-    ├─2021-03
-	......
-</code></pre>
-<p>图片分别来自手机的<code>/DCIM/Camera</code>、<code>/DCIM/Screenshots</code>、<code>/Pictures/WeiXin</code>目录，让AI帮忙写了一个python脚本：</p>
-<pre><code>import os
-import re
-import time
-import calendar
-import shutil
-import platform
-import subprocess
-from datetime import datetime
-
-def set_file_timestamps(file_path, target_time):
-    """设置文件的创建时间和修改时间"""
-    timestamp = target_time.timestamp()
-  
-    try:
-        if platform.system() == "Windows":
-            # Windows系统使用PowerShell设置时间
-            time_str = target_time.strftime("%Y-%m-%d %H:%M:%S")
-            powershell_cmd = (
-                f'(Get-Item "{file_path}").CreationTime = "{time_str}"; '
-                f'(Get-Item "{file_path}").LastWriteTime = "{time_str}"'
-            )
-            subprocess.run(
-                ["powershell", "-Command", powershell_cmd],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-        elif platform.system() == "Darwin":  # macOS
-            # macOS使用SetFile和utime
-            time_str = target_time.strftime("%Y%m%d%H%M.%S")
-            subprocess.run(
-                ["SetFile", "-d", time_str, "-m", time_str, file_path],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-        else:  # Linux
-            # Linux设置访问时间和修改时间
-            os.utime(file_path, (timestamp, timestamp))
-          
-        return True
-    except Exception as e:
-        print(f"设置文件 {file_path} 时间时出错: {str(e)}")
-        return False
-
-def set_directory_timestamps(dir_path, year, month):
-    """设置月份目录的创建时间和修改时间"""
-    try:
-        # 计算该月第一天和最后一天
-        first_day = datetime(year, month, 1, 0, 0, 0)
-        last_day_date = calendar.monthrange(year, month)[1]
-        last_day = datetime(year, month, last_day_date, 23, 59, 59)
-      
-        if platform.system() == "Windows":
-            # Windows系统使用PowerShell设置时间
-            first_day_str = first_day.strftime("%Y-%m-%d %H:%M:%S")
-            last_day_str = last_day.strftime("%Y-%m-%d %H:%M:%S")
-            powershell_cmd = (
-                f'(Get-Item "{dir_path}").CreationTime = "{first_day_str}"; '
-                f'(Get-Item "{dir_path}").LastWriteTime = "{last_day_str}"'
-            )
-            subprocess.run(
-                ["powershell", "-Command", powershell_cmd],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-        elif platform.system() == "Darwin":  # macOS
-            # macOS使用SetFile和utime
-            first_day_str = first_day.strftime("%Y%m%d%H%M.%S")
-            last_day_str = last_day.strftime("%Y%m%d%H%M.%S")
-            subprocess.run(["SetFile", "-d", first_day_str, dir_path], check=True)
-            os.utime(dir_path, (last_day.timestamp(), last_day.timestamp()))
-        else:  # Linux
-            # Linux通过创建临时目录的方式设置
-            if os.path.exists(dir_path):
-                temp_dir = dir_path + "_temp"
-                os.rename(dir_path, temp_dir)
-                os.makedirs(dir_path)
-              
-                # 设置新目录时间
-                os.utime(dir_path, (first_day.timestamp(), last_day.timestamp()))
-              
-                # 移动内容
-                for item in os.listdir(temp_dir):
-                    shutil.move(os.path.join(temp_dir, item), os.path.join(dir_path, item))
-                os.rmdir(temp_dir)
-            else:
-                os.makedirs(dir_path)
-                os.utime(dir_path, (first_day.timestamp(), last_day.timestamp()))
-              
-        return True
-    except Exception as e:
-        print(f"设置目录 {dir_path} 时间时出错: {str(e)}")
-        return False
-
-def process_images(source_dir):
-    """处理指定目录下的图片文件"""
-    # 支持的图片文件扩展名
-    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic')
-    video_extensions = ('.mp4', '.mov', '.avi', '.mkv')
-  
-    # 匹配mmexport开头的文件名正则表达式（简单形式）
-    mmexport_simple_pattern = re.compile(r'^mmexport(\d+)\.(.+)$')
-  
-    # 匹配mmexport开头的文件名正则表达式（复杂形式，带哈希）
-    mmexport_complex_pattern = re.compile(r'^mmexport[a-f0-9]+_(\d+)\.(.+)$')
-  
-    # 匹配wx_camera_开头的文件名正则表达式
-    wx_camera_pattern = re.compile(r'^wx_camera_(\d+)\.(.+)$')
-  
-    # 匹配Screenshot开头的文件名正则表达式
-    screenshot_pattern = re.compile(r'^Screenshot_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d+)_.*\.(.+)$')
-  
-    # 匹配IMG_日期格式的文件 (如 IMG_20210417_145554.jpg)
-    img_pattern = re.compile(r'^IMG_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
-  
-    # 匹配MVIMG_日期格式的文件 (如 MVIMG_20210505_191758.jpg)
-    mvimg_pattern = re.compile(r'^MVIMG_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
-  
-    # 匹配VID_日期格式的文件 (如 VID_20210801_182018.mp4)
-    vid_pattern = re.compile(r'^VID_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
-  
-    # 遍历目录中的所有文件
-    for filename in os.listdir(source_dir):
-        file_path = os.path.join(source_dir, filename)
-      
-        # 只处理文件，不处理目录
-        if not os.path.isfile(file_path):
-            continue
-          
-        # 检查文件扩展名
-        file_ext = os.path.splitext(filename)[1].lower()
-        is_image = file_ext in image_extensions
-        is_video = file_ext in video_extensions
-      
-        # 只处理图片和视频文件
-        if not (is_image or is_video):
-            continue
-          
-        # 检查文件名是否符合IMG_格式
-        img_match = img_pattern.match(filename)
-        file_type = "img"
-      
-        if not img_match:
-            # 检查是否符合MVIMG_格式
-            mvimg_match = mvimg_pattern.match(filename)
-            file_type = "mvimg"
-          
-        if not img_match and not mvimg_match:
-            # 检查是否符合VID_格式
-            vid_match = vid_pattern.match(filename)
-            file_type = "vid"
-          
-        if not img_match and not mvimg_match and not vid_match:
-            # 检查是否符合mmexport简单格式
-            match = mmexport_simple_pattern.match(filename)
-            file_type = "mmexport_simple"
-          
-        if not img_match and not mvimg_match and not vid_match and not match:
-            # 检查是否符合mmexport复杂格式（带哈希）
-            match = mmexport_complex_pattern.match(filename)
-            file_type = "mmexport_complex"
-          
-        if not img_match and not mvimg_match and not vid_match and not match:
-            # 检查是否符合wx_camera_格式
-            match = wx_camera_pattern.match(filename)
-            file_type = "wx_camera"
-          
-        if not img_match and not mvimg_match and not vid_match and not match:
-            # 检查是否符合Screenshot格式
-            match = screenshot_pattern.match(filename)
-            file_type = "screenshot"
-          
-        if not img_match and not mvimg_match and not vid_match and not match:
-            print(f"跳过非mmexport/wx_camera/screenshot/IMG_/MVIMG_/VID_格式文件: {filename}")
-            continue
-          
-        try:
-            # 根据文件类型处理
-            if file_type == "img":
-                # 从IMG_文件名中提取时间信息
-                year = int(img_match.group(1))
-                month = int(img_match.group(2))
-                day = int(img_match.group(3))
-                hour = int(img_match.group(4)[:2])
-                minute = int(img_match.group(4)[2:4])
-                second = int(img_match.group(4)[4:6])
-                extension = img_match.group(5)
-              
-                img_datetime = datetime(year, month, day, hour, minute, second)
-                new_filename = filename  # IMG_文件不需要重命名
-                sub_dir_name = 'Camera'
-                month_dir_name = img_datetime.strftime("%Y-%m")
-              
-            elif file_type == "mvimg":
-                # 从MVIMG_文件名中提取时间信息
-                year = int(mvimg_match.group(1))
-                month = int(mvimg_match.group(2))
-                day = int(mvimg_match.group(3))
-                hour = int(mvimg_match.group(4)[:2])
-                minute = int(mvimg_match.group(4)[2:4])
-                second = int(mvimg_match.group(4)[4:6])
-                extension = mvimg_match.group(5)
-              
-                img_datetime = datetime(year, month, day, hour, minute, second)
-                new_filename = filename  # MVIMG_文件不需要重命名
-                sub_dir_name = 'Camera'
-                month_dir_name = img_datetime.strftime("%Y-%m")
-              
-            elif file_type == "vid":
-                # 从VID_文件名中提取时间信息
-                year = int(vid_match.group(1))
-                month = int(vid_match.group(2))
-                day = int(vid_match.group(3))
-                hour = int(vid_match.group(4)[:2])
-                minute = int(vid_match.group(4)[2:4])
-                second = int(vid_match.group(4)[4:6])
-                extension = vid_match.group(5)
-              
-                img_datetime = datetime(year, month, day, hour, minute, second)
-                new_filename = filename  # VID_文件不需要重命名
-                sub_dir_name = 'Video'
-                month_dir_name = img_datetime.strftime("%Y-%m")
-              
-            elif file_type == "screenshot":
-                # 从文件名中提取时间信息
-                year = int(match.group(1))
-                month = int(match.group(2))
-                day = int(match.group(3))
-                hour = int(match.group(4))
-                minute = int(match.group(5))
-                second = int(match.group(6))
-                extension = match.group(8)
-              
-                img_datetime = datetime(year, month, day, hour, minute, second)
-                new_filename = filename  # Screenshot文件不需要重命名
-                sub_dir_name = 'ScreenShot'
-                month_dir_name = img_datetime.strftime("%Y-%m")
-              
-            else:
-                # 处理微信导出的文件
-                # 提取时间戳
-                timestamp = int(match.group(1))
-                extension = match.group(2)
-              
-                # 转换时间戳为datetime对象
-                # 处理毫秒级时间戳
-                if timestamp &gt; 10**12:  # 大于1e12的认为是毫秒级
-                    timestamp = timestamp / 1000
-                img_datetime = datetime.fromtimestamp(timestamp)
-              
-                # 生成新文件名
-                if file_type == "mmexport_simple" or file_type == "mmexport_complex":
-                    new_filename = f"mmexport_{img_datetime.strftime('%Y%m%d_%H%M%S')}.{extension}"
-                    sub_dir_name = 'WeiXin'
-                else:  # wx_camera
-                    new_filename = f"wx_camera_{img_datetime.strftime('%Y%m%d_%H%M%S')}.{extension}"
-                    sub_dir_name = 'WeiXin'
-              
-                month_dir_name = img_datetime.strftime("%Y-%m")
-              
-                # 重命名文件（如果不是Screenshot类型）
-                new_file_path = os.path.join(source_dir, new_filename)
-                if file_path != new_file_path:
-                    if os.path.exists(new_file_path):
-                        print(f"文件已存在，跳过重命名: {new_filename}")
-                    else:
-                        os.rename(file_path, new_file_path)
-                        print(f"重命名: {filename} -&gt; {new_filename}")
-                        file_path = new_file_path  # 更新文件路径
-          
-            # 设置文件的创建时间和修改时间（如果不是IMG_、MVIMG_或VID_类型）
-            if file_type not in ["img", "mvimg", "vid"]:
-                if set_file_timestamps(file_path, img_datetime):
-                    print(f"已设置文件时间: {new_filename} -&gt; {img_datetime}")
-            else:
-                # 对于IMG_、MVIMG_和VID_文件，仍然设置时间戳
-                if set_file_timestamps(file_path, img_datetime):
-                    print(f"已设置文件时间: {new_filename} -&gt; {img_datetime}")
-          
-            # 创建月份目录
-            month_dir_path = os.path.join(source_dir, month_dir_name, sub_dir_name)
-          
-            # 确保月份目录存在并设置时间
-            if not os.path.exists(month_dir_path):
-                os.makedirs(month_dir_path)
-                print(f"创建月份目录: {month_dir_name}/{sub_dir_name}")
-          
-            # 设置月份目录时间属性
-            set_directory_timestamps(month_dir_path, img_datetime.year, img_datetime.month)
-          
-            # 移动文件到月份目录
-            dest_path = os.path.join(month_dir_path, new_filename)
-            if not os.path.exists(dest_path):
-                shutil.move(file_path, dest_path)
-                print(f"移动文件到: {month_dir_name}/{sub_dir_name}/{new_filename}")
-            else:
-                print(f"目标文件已存在，跳过移动: {month_dir_name}/{sub_dir_name}/{new_filename}")
-              
-        except Exception as e:
-            print(f"处理文件 {filename} 时出错: {str(e)}")
-
-if __name__ == "__main__":
-    import argparse
-  
-    parser = argparse.ArgumentParser(description='处理图片文件，重命名、设置时间并按月份归档')
-    parser.add_argument('directory', help='要处理的图片所在目录')
-    args = parser.parse_args()
-  
-    # 验证目录是否存在
-    if not os.path.isdir(args.directory):
-        print(f"错误: 目录 '{args.directory}' 不存在或不是一个有效的目录")
-    else:
-        print(f"开始处理目录: {args.directory}")
-        process_images(args.directory)
-        print("处理完成")
-</code></pre>
-<h3>1. 脚本概述</h3>
-<p>这是一个用于整理和归档图片及视频文件的Python脚本，主要功能包括文件重命名、时间戳设置和按月份分类归档。</p>
-<h3>2. 核心功能</h3>
-<h4>文件处理能力</h4>
-<ul>
-<li>
-<p><strong>支持格式</strong>：处理多种图片格式（.jpg, .jpeg, .png, .gif, .bmp, .webp, .heic）和视频格式（.mp4, .mov, .avi, .mkv）</p>
-</li>
-<li>
-<p><strong>文件类型识别</strong>：能够识别并处理以下命名格式的文件：</p>
-<ul>
-<li>微信导出文件（mmexport开头）</li>
-<li>微信相机文件（wx_camera_开头）</li>
-<li>截图文件（Screenshot_开头）</li>
-<li>相机照片（IMG_、MVIMG_开头）</li>
-<li>视频文件（VID_开头）</li>
-</ul>
-</li>
-</ul>
-<h4>文件重命名</h4>
-<ul>
-<li>对微信导出的文件进行标准化重命名，格式为：<code>mmexport_YYYYMMDD_HHMMSS.ext</code> 或 <code>wx_camera_YYYYMMDD_HHMMSS.ext</code></li>
-<li>其他格式文件保持原文件名不变</li>
-</ul>
-<h4>时间戳管理</h4>
-<ul>
-<li><strong>精确时间设置</strong>：根据文件名中的时间信息设置文件的创建时间和修改时间</li>
-<li><strong>跨平台支持</strong>：针对Windows、macOS和Linux系统采用不同的时间设置方法</li>
-<li><strong>目录时间设置</strong>：为创建的月份目录设置合理的起止时间</li>
-</ul>
-<h4>文件归档组织</h4>
-<ul>
-<li>
-<p>按年月创建目录结构（如：2023-05）</p>
-</li>
-<li>
-<p>根据文件类型分类存储：</p>
-<ul>
-<li>Camera：相机拍摄的照片</li>
-<li>Video：视频文件</li>
-<li>ScreenShot：截图文件</li>
-<li>WeiXin：微信相关文件</li>
-</ul>
-</li>
-</ul>
-<h3>3. 技术特点</h3>
-<h4>智能解析</h4>
-<ul>
-<li>能够解析多种时间格式，包括时间戳和日期字符串</li>
-<li>自动处理毫秒级时间戳转换</li>
-</ul>
-<h4>跨平台兼容</h4>
-<ul>
-<li>针对不同操作系统（Windows、macOS、Linux）采用相应的文件操作方法</li>
-<li>使用PowerShell（Windows）、SetFile（macOS）和utime（Linux）等系统工具</li>
-</ul>
-<h4>安全机制</h4>
-<ul>
-<li>检查文件是否已存在，避免重复操作</li>
-<li>异常处理机制，确保单个文件处理失败不影响整体流程</li>
-</ul>
-<h3>4. 使用场景</h3>
-<p>该脚本特别适用于：</p>
-<ul>
-<li>整理手机导出的照片和视频文件</li>
-<li>规范化管理大量杂乱的媒体文件</li>
-<li>按时间顺序归档个人照片和视频资料</li>
-<li>恢复文件的正确创建时间信息</li>
-</ul>
-<h3>5. 使用方法</h3>
-<p>通过命令行参数指定需要处理的目录：</p>
-<pre><code>python 整理图片.py [目录路径]
-</code></pre>
-<h2>四、为打印的照片添加水印</h2>
-<p>由于想把每一年的照片精选100张出来，修一修打印出来装订成册，所以想把需要打印的照片添加一些水印，包括时间、地点、设备、参数等。</p>
-<p>了解了一下打印的尺寸，主要有：</p>
-<p><img src="https://niceimg.com/oss/2025/09/09/68c01733a1ede.webp" alt="image" /></p>
-<p>手机拍摄的照片比例一般是4:3，如果选择大6寸打印是刚刚好的，但是如果在下方加了一条水印，打印出来长边就会有白边，</p>
-<p>为了解决这个问题，我首先把照片裁切成3:2的比例，然后使用这个在线logo添加工具：<a href="https://milai.drtk.cn/logo/milai-frame">milai.drtk.cn/logo/milai-frame</a></p>
-<p>该工具的原链接为<a href="https://xxbiji.github.io/logo/milai-frame">xxbiji.github.io/logo/milai-frame</a>,GitHub地址为：<a href="https://github.com/xxbiji/logo">https://github.com/xxbiji/logo</a></p>
-<p>部分参数设置如下，最主要还是<strong>边框大小设置成60</strong>。logo调为自动，左上角文字可以使用模板中的<code>{dateTime}</code>，左下角文字为：<code>photo by XXX with {make} {model}</code>，右上角文字为<code>省份 | 城市 | 地点·详细地址</code>，右下角文字为：<code>{focalLength}mm f/{F} {S} ISO{ISO}</code></p>
-<p><img src="https://niceimg.com/oss/2025/09/09/68c019809f1e7.webp" alt="20250909201140.webp" /></p>
-<p>最终的成品照片接近4:3比例，一下为部分样图：</p>
-<p><img src="https://niceimg.com/oss/2025/09/09/68c01033d9312.webp" alt="2025-09-09_13-31-52" /></p>
-<p><img src="https://niceimg.com/oss/2025/09/09/68c01aeb7f048.webp" alt="2025-09-09_13-42-11" /></p>
-<p><img src="https://niceimg.com/oss/2025/09/09/68c01c01991fb.webp" alt="2025-09-09_13-43-49.webp" /></p>
-<p>最后就是去淘宝打印了，其实本来是想买个打印机的，看中小米的照片打印机1s，但是看网上说很容易吃灰，而且打印机+耗材套装就750，耗材100块80张，感觉没有淘宝打印划算。</p>
-<p>先在淘宝上打印试试看吧，期待好结果。</p>
-]]></content>
-    <author><name>TangKai</name></author>
-    <category term="使用指南"/>
+    <category term="微信公众号"/>
   </entry>
   <entry>
     <title>抗抑郁药“五朵金花”：舍曲林、帕罗西汀、氟西汀、艾司西酞普兰</title>
@@ -3795,6 +3343,109 @@ proxy_cache off;
     <category term="微信公众号"/>
   </entry>
   <entry>
+    <title>自建share微博客户端激活</title>
+    <link href="https://tangkai.me/posts/share-activate/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/share-activate/</id>
+    <published>2025-10-16T00:00:00.000Z</published>
+    <updated>2025-10-16T00:00:00.000Z</updated>
+    <summary>自建share微博客户端激活</summary>
+    <content type="html"><![CDATA[<h1>自建 Share 微博客户端激活</h1>
+<p>在路由器某个目录下创建一个nginx 的docker compose文件（使用macvlan，分配一个单独的ip 192.168.2.3，这样可以使用默认80和443端口）：</p>
+<pre><code>version: '3.8'
+services:
+  app:
+    image: 'nginx:latest'
+    restart: unless-stopped
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./html:/usr/share/nginx/html
+    networks:
+      macvlan:
+        ipv4_address: 192.168.2.3
+
+networks:
+  macvlan:
+    external: true
+    name: macvlan
+</code></pre>
+<p>在目录下创建nginx.conf</p>
+<pre><code># 全局块
+user nginx;                          # 指定 Nginx 工作进程运行的用户
+worker_processes auto;               # 指定工作进程的数量，auto 表示根据 CPU 核心数自动调整
+error_log /var/log/nginx/error.log;  # 指定错误日志文件的位置
+pid /run/nginx.pid;                  # 指定 Nginx 的 PID 文件位置
+ 
+# events 块
+events {
+    worker_connections 1024;         # 每个工作进程的最大连接数
+    # use epoll;                     # 指定使用的事件驱动模型，epoll 是 Linux 下的高效模型
+}
+ 
+# http 块
+http {
+    include /etc/nginx/mime.types;   # 包含 MIME 类型定义文件
+    default_type application/octet-stream;
+ 
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+ 
+    access_log /var/log/nginx/access.log main;  # 指定访问日志文件的位置和格式
+ 
+    sendfile on;                     # 开启高效文件传输模式
+    tcp_nopush on;                   # 开启 TCP_NOPUSH 选项，减少 TCP 包的数量
+    tcp_nodelay on;                  # 开启 TCP_NODELAY 选项，立即发送数据
+ 
+    keepalive_timeout 65;            # 设置长连接的超时时间
+ 
+    # server 块（虚拟主机配置）
+    server {
+        listen 80;                   # 监听的端口
+        server_name localhost;       # 服务器名称
+ 
+        # location 块（处理特定路径的请求）
+        location / {
+            root /usr/share/nginx/html;  # 网站根目录
+            index index.html index.htm; # 默认索引文件
+        }
+		# 激活配置块
+	    location /activecode/bind {
+	        # 设置响应头，表明返回的是 JSON 数据
+	        add_header Content-Type application/json;
+
+	        # 返回 JSON 数据
+	        return 200 '{
+	            "code": 0,
+	            "data": {
+	                "code": "鸡仔YYDS",
+	                "activated": true,
+	                "orderId": "",
+	                "activeCount": 0,
+	                "timestamp": 32472115200000,
+	                "s_expire": false
+	            }
+	        }';
+	    }
+
+        # 错误页面配置
+        error_page 404 /404.html;
+        location = /404.html {
+            root /usr/share/nginx/html;
+        }
+ 
+        error_page 500 502 503 504 /50x.html;
+        location = /50x.html {
+            root /usr/share/nginx/html;
+        }
+    }
+}
+</code></pre>
+<p>执行<code>docker compose up -d</code>，然后把路由器中的api.yuhengye.com 重定向到 192.168.2.3，即可在手机上输入任意验证码激活成功！</p>
+]]></content>
+    <author><name>TangKai</name></author>
+    <category term="使用指南"/>
+  </entry>
+  <entry>
     <title>溶栓前紧急降压，除了乌拉地尔，别忘了还有......</title>
     <link href="https://tangkai.me/posts/2026-09-02-%E6%BA%B6%E6%A0%93%E5%89%8D%E7%B4%A7%E6%80%A5%E9%99%8D%E5%8E%8B-%E9%99%A4%E4%BA%86%E4%B9%8C%E6%8B%89%E5%9C%B0%E5%B0%94-%E5%88%AB%E5%BF%98%E4%BA%86%E8%BF%98%E6%9C%89/" rel="alternate" type="text/html"/>
     <id>https://tangkai.me/posts/2026-09-02-%E6%BA%B6%E6%A0%93%E5%89%8D%E7%B4%A7%E6%80%A5%E9%99%8D%E5%8E%8B-%E9%99%A4%E4%BA%86%E4%B9%8C%E6%8B%89%E5%9C%B0%E5%B0%94-%E5%88%AB%E5%BF%98%E4%BA%86%E8%BF%98%E6%9C%89/</id>
@@ -3890,6 +3541,447 @@ proxy_cache off;
 ]]></content>
     <author><name>TangKai</name></author>
     <category term="微信公众号"/>
+  </entry>
+  <entry>
+    <title>整理照片心得</title>
+    <link href="https://tangkai.me/posts/photo-manage-experience/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/photo-manage-experience/</id>
+    <published>2025-09-09T00:00:00.000Z</published>
+    <updated>2025-09-09T00:00:00.000Z</updated>
+    <summary>使用python脚本整理照片，按照月份分类整理</summary>
+    <content type="html"><![CDATA[<h2>一、前言</h2>
+<p>近日在整理以前拍的照片，想做一本相册，中间遇到了许多坑，记录一下。</p>
+<h2>二、找到旧照片原图</h2>
+<p>首先是找到旧的照片，由于换了好几部手机，从红米K20Pro→K30s→小米11 Ultra→小米15，在2021年以前，由于没有整NAS，都是定期手动备份到机械硬盘里面。2021年以后有了NAS以后，就变懒了，都让软件自动上传到NAS上，还有一份小米云同步自动同步。问题恰恰就出在这里，由于以前的手机有的是128g，有的是256g，到后面手机存储空间就不够了，不知怎么，小米把本地手机里面的原图删了，换成了压缩后的图片。就这样，NAS中的原图也被替换成了压缩后的图片。这挺恶心的，近日整理照片的时候才发现原图没了。最后想到的解决办法是从小米云同步上把以前的照片下载下来，这是个大坑，这软件的PC端非常卡，体验非常不好。最后我选择整个相册都下载，只能烧一点小米CDN的流量来泄愤了。</p>
+<h2>三、按照月份分类整理照片</h2>
+<p>其次是按照月份分类整理照片，我的方法是年份-月份-相册名,</p>
+<pre><code>    ├─2021-01
+    │  ├─Camera
+    │  ├─Picture
+    │  ├─ScreenShot
+    │  ├─Video
+    │  └─WeiXin
+    ├─2021-02
+    │  ├─Camera
+    │  ├─Picture
+    │  ├─ScreenShot
+    │  ├─Video
+    │  └─WeiXin
+    ├─2021-03
+	......
+</code></pre>
+<p>图片分别来自手机的<code>/DCIM/Camera</code>、<code>/DCIM/Screenshots</code>、<code>/Pictures/WeiXin</code>目录，让AI帮忙写了一个python脚本：</p>
+<pre><code>import os
+import re
+import time
+import calendar
+import shutil
+import platform
+import subprocess
+from datetime import datetime
+
+def set_file_timestamps(file_path, target_time):
+    """设置文件的创建时间和修改时间"""
+    timestamp = target_time.timestamp()
+  
+    try:
+        if platform.system() == "Windows":
+            # Windows系统使用PowerShell设置时间
+            time_str = target_time.strftime("%Y-%m-%d %H:%M:%S")
+            powershell_cmd = (
+                f'(Get-Item "{file_path}").CreationTime = "{time_str}"; '
+                f'(Get-Item "{file_path}").LastWriteTime = "{time_str}"'
+            )
+            subprocess.run(
+                ["powershell", "-Command", powershell_cmd],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+        elif platform.system() == "Darwin":  # macOS
+            # macOS使用SetFile和utime
+            time_str = target_time.strftime("%Y%m%d%H%M.%S")
+            subprocess.run(
+                ["SetFile", "-d", time_str, "-m", time_str, file_path],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+        else:  # Linux
+            # Linux设置访问时间和修改时间
+            os.utime(file_path, (timestamp, timestamp))
+          
+        return True
+    except Exception as e:
+        print(f"设置文件 {file_path} 时间时出错: {str(e)}")
+        return False
+
+def set_directory_timestamps(dir_path, year, month):
+    """设置月份目录的创建时间和修改时间"""
+    try:
+        # 计算该月第一天和最后一天
+        first_day = datetime(year, month, 1, 0, 0, 0)
+        last_day_date = calendar.monthrange(year, month)[1]
+        last_day = datetime(year, month, last_day_date, 23, 59, 59)
+      
+        if platform.system() == "Windows":
+            # Windows系统使用PowerShell设置时间
+            first_day_str = first_day.strftime("%Y-%m-%d %H:%M:%S")
+            last_day_str = last_day.strftime("%Y-%m-%d %H:%M:%S")
+            powershell_cmd = (
+                f'(Get-Item "{dir_path}").CreationTime = "{first_day_str}"; '
+                f'(Get-Item "{dir_path}").LastWriteTime = "{last_day_str}"'
+            )
+            subprocess.run(
+                ["powershell", "-Command", powershell_cmd],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+        elif platform.system() == "Darwin":  # macOS
+            # macOS使用SetFile和utime
+            first_day_str = first_day.strftime("%Y%m%d%H%M.%S")
+            last_day_str = last_day.strftime("%Y%m%d%H%M.%S")
+            subprocess.run(["SetFile", "-d", first_day_str, dir_path], check=True)
+            os.utime(dir_path, (last_day.timestamp(), last_day.timestamp()))
+        else:  # Linux
+            # Linux通过创建临时目录的方式设置
+            if os.path.exists(dir_path):
+                temp_dir = dir_path + "_temp"
+                os.rename(dir_path, temp_dir)
+                os.makedirs(dir_path)
+              
+                # 设置新目录时间
+                os.utime(dir_path, (first_day.timestamp(), last_day.timestamp()))
+              
+                # 移动内容
+                for item in os.listdir(temp_dir):
+                    shutil.move(os.path.join(temp_dir, item), os.path.join(dir_path, item))
+                os.rmdir(temp_dir)
+            else:
+                os.makedirs(dir_path)
+                os.utime(dir_path, (first_day.timestamp(), last_day.timestamp()))
+              
+        return True
+    except Exception as e:
+        print(f"设置目录 {dir_path} 时间时出错: {str(e)}")
+        return False
+
+def process_images(source_dir):
+    """处理指定目录下的图片文件"""
+    # 支持的图片文件扩展名
+    image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic')
+    video_extensions = ('.mp4', '.mov', '.avi', '.mkv')
+  
+    # 匹配mmexport开头的文件名正则表达式（简单形式）
+    mmexport_simple_pattern = re.compile(r'^mmexport(\d+)\.(.+)$')
+  
+    # 匹配mmexport开头的文件名正则表达式（复杂形式，带哈希）
+    mmexport_complex_pattern = re.compile(r'^mmexport[a-f0-9]+_(\d+)\.(.+)$')
+  
+    # 匹配wx_camera_开头的文件名正则表达式
+    wx_camera_pattern = re.compile(r'^wx_camera_(\d+)\.(.+)$')
+  
+    # 匹配Screenshot开头的文件名正则表达式
+    screenshot_pattern = re.compile(r'^Screenshot_(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d+)_.*\.(.+)$')
+  
+    # 匹配IMG_日期格式的文件 (如 IMG_20210417_145554.jpg)
+    img_pattern = re.compile(r'^IMG_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
+  
+    # 匹配MVIMG_日期格式的文件 (如 MVIMG_20210505_191758.jpg)
+    mvimg_pattern = re.compile(r'^MVIMG_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
+  
+    # 匹配VID_日期格式的文件 (如 VID_20210801_182018.mp4)
+    vid_pattern = re.compile(r'^VID_(\d{4})(\d{2})(\d{2})_(\d{6})\.(.+)$')
+  
+    # 遍历目录中的所有文件
+    for filename in os.listdir(source_dir):
+        file_path = os.path.join(source_dir, filename)
+      
+        # 只处理文件，不处理目录
+        if not os.path.isfile(file_path):
+            continue
+          
+        # 检查文件扩展名
+        file_ext = os.path.splitext(filename)[1].lower()
+        is_image = file_ext in image_extensions
+        is_video = file_ext in video_extensions
+      
+        # 只处理图片和视频文件
+        if not (is_image or is_video):
+            continue
+          
+        # 检查文件名是否符合IMG_格式
+        img_match = img_pattern.match(filename)
+        file_type = "img"
+      
+        if not img_match:
+            # 检查是否符合MVIMG_格式
+            mvimg_match = mvimg_pattern.match(filename)
+            file_type = "mvimg"
+          
+        if not img_match and not mvimg_match:
+            # 检查是否符合VID_格式
+            vid_match = vid_pattern.match(filename)
+            file_type = "vid"
+          
+        if not img_match and not mvimg_match and not vid_match:
+            # 检查是否符合mmexport简单格式
+            match = mmexport_simple_pattern.match(filename)
+            file_type = "mmexport_simple"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            # 检查是否符合mmexport复杂格式（带哈希）
+            match = mmexport_complex_pattern.match(filename)
+            file_type = "mmexport_complex"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            # 检查是否符合wx_camera_格式
+            match = wx_camera_pattern.match(filename)
+            file_type = "wx_camera"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            # 检查是否符合Screenshot格式
+            match = screenshot_pattern.match(filename)
+            file_type = "screenshot"
+          
+        if not img_match and not mvimg_match and not vid_match and not match:
+            print(f"跳过非mmexport/wx_camera/screenshot/IMG_/MVIMG_/VID_格式文件: {filename}")
+            continue
+          
+        try:
+            # 根据文件类型处理
+            if file_type == "img":
+                # 从IMG_文件名中提取时间信息
+                year = int(img_match.group(1))
+                month = int(img_match.group(2))
+                day = int(img_match.group(3))
+                hour = int(img_match.group(4)[:2])
+                minute = int(img_match.group(4)[2:4])
+                second = int(img_match.group(4)[4:6])
+                extension = img_match.group(5)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # IMG_文件不需要重命名
+                sub_dir_name = 'Camera'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            elif file_type == "mvimg":
+                # 从MVIMG_文件名中提取时间信息
+                year = int(mvimg_match.group(1))
+                month = int(mvimg_match.group(2))
+                day = int(mvimg_match.group(3))
+                hour = int(mvimg_match.group(4)[:2])
+                minute = int(mvimg_match.group(4)[2:4])
+                second = int(mvimg_match.group(4)[4:6])
+                extension = mvimg_match.group(5)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # MVIMG_文件不需要重命名
+                sub_dir_name = 'Camera'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            elif file_type == "vid":
+                # 从VID_文件名中提取时间信息
+                year = int(vid_match.group(1))
+                month = int(vid_match.group(2))
+                day = int(vid_match.group(3))
+                hour = int(vid_match.group(4)[:2])
+                minute = int(vid_match.group(4)[2:4])
+                second = int(vid_match.group(4)[4:6])
+                extension = vid_match.group(5)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # VID_文件不需要重命名
+                sub_dir_name = 'Video'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            elif file_type == "screenshot":
+                # 从文件名中提取时间信息
+                year = int(match.group(1))
+                month = int(match.group(2))
+                day = int(match.group(3))
+                hour = int(match.group(4))
+                minute = int(match.group(5))
+                second = int(match.group(6))
+                extension = match.group(8)
+              
+                img_datetime = datetime(year, month, day, hour, minute, second)
+                new_filename = filename  # Screenshot文件不需要重命名
+                sub_dir_name = 'ScreenShot'
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+            else:
+                # 处理微信导出的文件
+                # 提取时间戳
+                timestamp = int(match.group(1))
+                extension = match.group(2)
+              
+                # 转换时间戳为datetime对象
+                # 处理毫秒级时间戳
+                if timestamp &gt; 10**12:  # 大于1e12的认为是毫秒级
+                    timestamp = timestamp / 1000
+                img_datetime = datetime.fromtimestamp(timestamp)
+              
+                # 生成新文件名
+                if file_type == "mmexport_simple" or file_type == "mmexport_complex":
+                    new_filename = f"mmexport_{img_datetime.strftime('%Y%m%d_%H%M%S')}.{extension}"
+                    sub_dir_name = 'WeiXin'
+                else:  # wx_camera
+                    new_filename = f"wx_camera_{img_datetime.strftime('%Y%m%d_%H%M%S')}.{extension}"
+                    sub_dir_name = 'WeiXin'
+              
+                month_dir_name = img_datetime.strftime("%Y-%m")
+              
+                # 重命名文件（如果不是Screenshot类型）
+                new_file_path = os.path.join(source_dir, new_filename)
+                if file_path != new_file_path:
+                    if os.path.exists(new_file_path):
+                        print(f"文件已存在，跳过重命名: {new_filename}")
+                    else:
+                        os.rename(file_path, new_file_path)
+                        print(f"重命名: {filename} -&gt; {new_filename}")
+                        file_path = new_file_path  # 更新文件路径
+          
+            # 设置文件的创建时间和修改时间（如果不是IMG_、MVIMG_或VID_类型）
+            if file_type not in ["img", "mvimg", "vid"]:
+                if set_file_timestamps(file_path, img_datetime):
+                    print(f"已设置文件时间: {new_filename} -&gt; {img_datetime}")
+            else:
+                # 对于IMG_、MVIMG_和VID_文件，仍然设置时间戳
+                if set_file_timestamps(file_path, img_datetime):
+                    print(f"已设置文件时间: {new_filename} -&gt; {img_datetime}")
+          
+            # 创建月份目录
+            month_dir_path = os.path.join(source_dir, month_dir_name, sub_dir_name)
+          
+            # 确保月份目录存在并设置时间
+            if not os.path.exists(month_dir_path):
+                os.makedirs(month_dir_path)
+                print(f"创建月份目录: {month_dir_name}/{sub_dir_name}")
+          
+            # 设置月份目录时间属性
+            set_directory_timestamps(month_dir_path, img_datetime.year, img_datetime.month)
+          
+            # 移动文件到月份目录
+            dest_path = os.path.join(month_dir_path, new_filename)
+            if not os.path.exists(dest_path):
+                shutil.move(file_path, dest_path)
+                print(f"移动文件到: {month_dir_name}/{sub_dir_name}/{new_filename}")
+            else:
+                print(f"目标文件已存在，跳过移动: {month_dir_name}/{sub_dir_name}/{new_filename}")
+              
+        except Exception as e:
+            print(f"处理文件 {filename} 时出错: {str(e)}")
+
+if __name__ == "__main__":
+    import argparse
+  
+    parser = argparse.ArgumentParser(description='处理图片文件，重命名、设置时间并按月份归档')
+    parser.add_argument('directory', help='要处理的图片所在目录')
+    args = parser.parse_args()
+  
+    # 验证目录是否存在
+    if not os.path.isdir(args.directory):
+        print(f"错误: 目录 '{args.directory}' 不存在或不是一个有效的目录")
+    else:
+        print(f"开始处理目录: {args.directory}")
+        process_images(args.directory)
+        print("处理完成")
+</code></pre>
+<h3>1. 脚本概述</h3>
+<p>这是一个用于整理和归档图片及视频文件的Python脚本，主要功能包括文件重命名、时间戳设置和按月份分类归档。</p>
+<h3>2. 核心功能</h3>
+<h4>文件处理能力</h4>
+<ul>
+<li>
+<p><strong>支持格式</strong>：处理多种图片格式（.jpg, .jpeg, .png, .gif, .bmp, .webp, .heic）和视频格式（.mp4, .mov, .avi, .mkv）</p>
+</li>
+<li>
+<p><strong>文件类型识别</strong>：能够识别并处理以下命名格式的文件：</p>
+<ul>
+<li>微信导出文件（mmexport开头）</li>
+<li>微信相机文件（wx_camera_开头）</li>
+<li>截图文件（Screenshot_开头）</li>
+<li>相机照片（IMG_、MVIMG_开头）</li>
+<li>视频文件（VID_开头）</li>
+</ul>
+</li>
+</ul>
+<h4>文件重命名</h4>
+<ul>
+<li>对微信导出的文件进行标准化重命名，格式为：<code>mmexport_YYYYMMDD_HHMMSS.ext</code> 或 <code>wx_camera_YYYYMMDD_HHMMSS.ext</code></li>
+<li>其他格式文件保持原文件名不变</li>
+</ul>
+<h4>时间戳管理</h4>
+<ul>
+<li><strong>精确时间设置</strong>：根据文件名中的时间信息设置文件的创建时间和修改时间</li>
+<li><strong>跨平台支持</strong>：针对Windows、macOS和Linux系统采用不同的时间设置方法</li>
+<li><strong>目录时间设置</strong>：为创建的月份目录设置合理的起止时间</li>
+</ul>
+<h4>文件归档组织</h4>
+<ul>
+<li>
+<p>按年月创建目录结构（如：2023-05）</p>
+</li>
+<li>
+<p>根据文件类型分类存储：</p>
+<ul>
+<li>Camera：相机拍摄的照片</li>
+<li>Video：视频文件</li>
+<li>ScreenShot：截图文件</li>
+<li>WeiXin：微信相关文件</li>
+</ul>
+</li>
+</ul>
+<h3>3. 技术特点</h3>
+<h4>智能解析</h4>
+<ul>
+<li>能够解析多种时间格式，包括时间戳和日期字符串</li>
+<li>自动处理毫秒级时间戳转换</li>
+</ul>
+<h4>跨平台兼容</h4>
+<ul>
+<li>针对不同操作系统（Windows、macOS、Linux）采用相应的文件操作方法</li>
+<li>使用PowerShell（Windows）、SetFile（macOS）和utime（Linux）等系统工具</li>
+</ul>
+<h4>安全机制</h4>
+<ul>
+<li>检查文件是否已存在，避免重复操作</li>
+<li>异常处理机制，确保单个文件处理失败不影响整体流程</li>
+</ul>
+<h3>4. 使用场景</h3>
+<p>该脚本特别适用于：</p>
+<ul>
+<li>整理手机导出的照片和视频文件</li>
+<li>规范化管理大量杂乱的媒体文件</li>
+<li>按时间顺序归档个人照片和视频资料</li>
+<li>恢复文件的正确创建时间信息</li>
+</ul>
+<h3>5. 使用方法</h3>
+<p>通过命令行参数指定需要处理的目录：</p>
+<pre><code>python 整理图片.py [目录路径]
+</code></pre>
+<h2>四、为打印的照片添加水印</h2>
+<p>由于想把每一年的照片精选100张出来，修一修打印出来装订成册，所以想把需要打印的照片添加一些水印，包括时间、地点、设备、参数等。</p>
+<p>了解了一下打印的尺寸，主要有：</p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01733a1ede.webp" alt="image" /></p>
+<p>手机拍摄的照片比例一般是4:3，如果选择大6寸打印是刚刚好的，但是如果在下方加了一条水印，打印出来长边就会有白边，</p>
+<p>为了解决这个问题，我首先把照片裁切成3:2的比例，然后使用这个在线logo添加工具：<a href="https://milai.drtk.cn/logo/milai-frame">milai.drtk.cn/logo/milai-frame</a></p>
+<p>该工具的原链接为<a href="https://xxbiji.github.io/logo/milai-frame">xxbiji.github.io/logo/milai-frame</a>,GitHub地址为：<a href="https://github.com/xxbiji/logo">https://github.com/xxbiji/logo</a></p>
+<p>部分参数设置如下，最主要还是<strong>边框大小设置成60</strong>。logo调为自动，左上角文字可以使用模板中的<code>{dateTime}</code>，左下角文字为：<code>photo by XXX with {make} {model}</code>，右上角文字为<code>省份 | 城市 | 地点·详细地址</code>，右下角文字为：<code>{focalLength}mm f/{F} {S} ISO{ISO}</code></p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c019809f1e7.webp" alt="20250909201140.webp" /></p>
+<p>最终的成品照片接近4:3比例，一下为部分样图：</p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01033d9312.webp" alt="2025-09-09_13-31-52" /></p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01aeb7f048.webp" alt="2025-09-09_13-42-11" /></p>
+<p><img src="https://niceimg.com/oss/2025/09/09/68c01c01991fb.webp" alt="2025-09-09_13-43-49.webp" /></p>
+<p>最后就是去淘宝打印了，其实本来是想买个打印机的，看中小米的照片打印机1s，但是看网上说很容易吃灰，而且打印机+耗材套装就750，耗材100块80张，感觉没有淘宝打印划算。</p>
+<p>先在淘宝上打印试试看吧，期待好结果。</p>
+]]></content>
+    <author><name>TangKai</name></author>
+    <category term="使用指南"/>
   </entry>
   <entry>
     <title>前庭神经炎、梅尼埃病…不同眩晕，激素首选是？何时启用？</title>

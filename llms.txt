@@ -10,8 +10,7 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
-- [自建share微博客户端激活](https://tangkai.me/posts/share-activate/): 自建share微博客户端激活
-- [整理照片心得](https://tangkai.me/posts/photo-manage-experience/): 使用python脚本整理照片，按照月份分类整理
+- [「帕金森病」和「帕金森综合征」如何区分？3 张表帮你总结好了](https://tangkai.me/posts/2026-09-13-帕金森病-和-帕金森综合征-如何区分-3-张表帮你总结好了/)
 - [抗抑郁药“五朵金花”：舍曲林、帕罗西汀、氟西汀、艾司西酞普兰](https://tangkai.me/posts/2026-09-09-抗抑郁药-五朵金花-舍曲林-帕罗西汀-氟西汀-艾司西酞普兰/)
 - [无需脚本！Magisk 模块屏蔽安卓开机音效：原理+实操](https://tangkai.me/posts/2025-12-20-无需脚本-magisk模块屏蔽安卓开机音效-/)
 - [【指南】中国帕金森病治疗指南（第五版）](https://tangkai.me/posts/2026-09-08-指南-中国帕金森病治疗指南-第五版/)
@@ -37,7 +36,9 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [给脑梗死患者开「双抗 21 天」，主任却说大错特错？](https://tangkai.me/posts/2026-08-30-给脑梗死患者开-双抗-21-天-主任却说大错特错/): 这篇总结快收好！
 - [丁苯酞、依达拉奉、胞磷胆碱...脑保护药物有何区别？这篇讲清了！](https://tangkai.me/posts/2026-08-29-丁苯酞-依达拉奉-胞磷胆碱-脑保护药物有何区别-这篇讲清了/): 太实用了
 - [丁苯酞、依达拉奉、胞磷胆碱...脑保护药物有何区别？这篇讲清了！](https://tangkai.me/posts/2026-08-30-丁苯酞-依达拉奉-胞磷胆碱-脑保护药物有何区别-这篇讲清了/): 太实用了
+- [自建share微博客户端激活](https://tangkai.me/posts/share-activate/): 自建share微博客户端激活
 - [溶栓前紧急降压，除了乌拉地尔，别忘了还有......](https://tangkai.me/posts/2026-09-02-溶栓前紧急降压-除了乌拉地尔-别忘了还有/): 无论白猫黑猫，抓住老鼠就是好猫
+- [整理照片心得](https://tangkai.me/posts/photo-manage-experience/): 使用python脚本整理照片，按照月份分类整理
 - [前庭神经炎、梅尼埃病…不同眩晕，激素首选是？何时启用？](https://tangkai.me/posts/2026-09-01-前庭神经炎-梅尼埃病-不同眩晕-激素首选是-何时启用/): 收藏！
 - [轻型卒中症状改善，还要溶栓吗？看完这篇不纠结！](https://tangkai.me/posts/2026-08-30-轻型卒中症状改善-还要溶栓吗-看完这篇不纠结/): 答对了吗？
 - [高清颅脑MR解剖彩色标注【全】](https://tangkai.me/posts/2026-08-30-高清颅脑mr解剖彩色标注-全/): 高清颅脑MR解剖彩色标注【全】
