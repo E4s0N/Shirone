@@ -5,7 +5,104 @@
   <link href="https://tangkai.me/" rel="alternate" type="text/html"/>
   <link href="https://tangkai.me/atom.xml" rel="self" type="application/atom+xml"/>
   <id>https://tangkai.me/</id>
-  <updated>2026-09-13T09:20:00.000Z</updated>
+  <updated>2026-09-13T13:00:00.000Z</updated>
+  <entry>
+    <title>从 Obsidian 到博客：一条全自动的内容同步流水线</title>
+    <link href="https://tangkai.me/posts/2026-09-13-obsidian-sync-pipeline/" rel="alternate" type="text/html"/>
+    <id>https://tangkai.me/posts/2026-09-13-obsidian-sync-pipeline/</id>
+    <published>2026-09-13T13:00:00.000Z</published>
+    <updated>2026-09-13T13:00:00.000Z</updated>
+    <summary>解剖我博客里跑了一年多的 Obsidian 剪藏同步流水线：GraphQL 增量拉取、公众号正文抽取、远程图片本地化、Actions 缓存游标与 keepalive 提交，以及为什么 GITHUB_TOKEN 的提交不会触发构建。</summary>
+    <content type="html"><![CDATA[<p><img src="./pic/obsidian-cover.jpg" alt="黑曜石砾石——Obsidian 这个名字的本义" /></p>
+<p><em>图源：James St. John，CC BY 2.0，via Wikimedia Commons。Obsidian 这个应用的名字本义就是黑曜石——火山玻璃。</em></p>
+<p>我博客里的文章有两种来源：一种是像上一篇 <a href="/posts/2026-09-13-sveltia-cms-for-shirone-content/">Sveltia CMS</a> 那样手工打磨的，另一种则来自一条跑了很久的自动化流水线——我在微信里看到值得收藏的文章，用「笔记同步助手」剪藏进 Obsidian，几十分钟后它就会以排版好的 Markdown 形式出现在博客上，配图本地化、元数据齐全、格式统一，全程不需要我碰一下键盘。</p>
+<p>这篇文章把这条流水线完整拆开讲：它要解决什么问题、每个环节怎么做的、以及几个不查源码绝对想不到的坑。</p>
+<h2>要解决什么问题</h2>
+<p>剪藏的内容有三类，处理方式完全不同：</p>
+<ol>
+<li><strong>链接类剪藏</strong>：存的是一篇文章的 URL（大多是微信公众号文章）。要做的是抓取网页、抽取正文、转成 Markdown、把远程图片下载到本地；</li>
+<li><strong>纯文本剪藏/随笔</strong>：没有 URL 的短内容，直接进博客的「说说」；</li>
+<li><strong>增量同步</strong>：云端的笔记库在不断变化（新增、编辑），流水线必须知道「上次同步到哪了」，只处理变化的部分。</li>
+</ol>
+<p>而执行环境是 GitHub Actions：无状态的临时 runner，每次都是全新检出。这就引出了两个核心设计——<strong>游标的外部持久化</strong>和<strong>与构建触发链路的配合</strong>。</p>
+<h2>脚本解剖：sync-obsidian.mjs</h2>
+<p>流水线的核心是内容仓里的 <code>scripts/content/sync-obsidian.mjs</code>（约 500 行 Node.js），由 <code>npm run sync</code> 触发。整体流程是一条单行道：<strong>GraphQL 拉取 → 逐条物化 → 更新游标 → 通知</strong>。</p>
+<h3>增量拉取：游标驱动的分页</h3>
+<p>剪藏服务端暴露一个 GraphQL 接口，脚本用 <code>updated:&lt;游标&gt;</code> 作为搜索条件、<code>sort:saved-asc</code> 排序，每页 15 条向后翻页，最多 500 页：</p>
+<pre><code>const search = await request({
+  query: SEARCH_QUERY,
+  variables: {
+    after: offset,
+    first: PAGE_SIZE,
+    query: [cursor ? `updated:${cursor}` : "", "sort:saved-asc"].filter(Boolean).join(" "),
+  },
+});
+</code></pre>
+<p>拉取过程中顺手记录见过的最大 <code>updatedAt</code>，作为本次的新游标写回状态文件。<strong>游标存的是时间戳而不是 ID</strong>，这样服务端的搜索语法就能直接消化，也天然容忍乱序更新。</p>
+<h3>分岔口：文章还是说说</h3>
+<p>每条笔记先看有没有 <code>url</code> 字段：有就按文章处理，没有就当说说。文章的目标路径由「保存日期 + 标题 slug」决定——<code>content/posts/2026-09-13-某个标题/index.md</code>，配图落进同目录的 <code>pic/</code>；说说的文件名则是 <code>日期-笔记ID.md</code>，天然去重。</p>
+<p>标题还有个不起眼但很烦的细节：剪藏工具给链接类剪藏起的机器标题是「同步助手_2026-09-13_真实标题_链接」这种格式，前后缀都是工具拼的，入库前要剥掉。</p>
+<h3>公众号正文抽取</h3>
+<p>链接类剪藏的主流程是抓取 URL 指向的网页。这里公众号文章是最难伺候的客人：</p>
+<ul>
+<li>正文全部藏在 <code>#js_content</code> 容器里，抓不到这个节点就视为抓取失败；</li>
+<li>图片全是懒加载，<code>data-src</code> 里的真实地址要逐个还原；</li>
+<li>大量段落靠内联样式伪装成标题，需要按字号/加粗启发式还原成真正的 <code>h2</code>/<code>h3</code>；</li>
+<li>抽出来的 HTML 交给 Turndown 转 Markdown，再过一遍自研的格式化器统一排版。</li>
+</ul>
+<p>抓取或解析失败时不会硬崩——回退到剪藏服务存下的正文快照，并在日志里标注本次内容的来源是 <code>page</code> 还是 <code>clip</code>，方便事后追溯质量。公众号文章还有一组专属元数据规则：<code>category</code> 固定为「微信公众号」，<code>tags</code> 用公众号名称（优先从正文页爬到的账号名，退化为剪藏服务返回的站点名），文末自动附上原文链接便于溯源。</p>
+<h3>远程图片本地化</h3>
+<p>这一步是流水线里性价比最高的：外链图片迟早失效（公众号的图片服务还带防盗链），所以正文里每张 <code>http(s)://</code> 开头的图片都会被下载到文章自己的 <code>pic/</code> 目录，引用改写为相对路径：</p>
+<pre><code>const hash = createHash("sha256").update(url).digest("hex").slice(0, 16);
+const fileName = `image-${hash}${ext}`;   // 内容寻址：同图不重名
+</code></pre>
+<p>文件名取 URL 的 SHA-256 前 16 位做内容寻址——同一张图无论在多少篇文章里出现，都只存一份、文件名稳定，重复同步时字节级比对直接跳过。扩展名优先从 URL 取，取不到再嗅探 Content-Type。</p>
+<h3>每条笔记留一份「案底」</h3>
+<p>每篇同步来的文章目录里还有一个 <code>res.json</code>——剪藏服务返回的原始 JSON 原样存档。看起来冗余，但它是排查利器：哪篇文章转出来的 Markdown 不对劲，打开 res.json 就能分清是服务端数据的问题还是解析逻辑的问题。</p>
+<h2>状态管理：无状态 runner 上的游标</h2>
+<p>游标存在 <code>.cache/obsidian-sync-state.json</code>。本地跑它就是个普通文件，但在 Actions 上，runner 每次都是全新环境，于是用 Actions Cache 做持久化：</p>
+<pre><code>- uses: actions/cache/restore@v4
+  with:
+    path: .cache/obsidian-sync-state.json
+    key: obsidian-sync-state-${{ github.ref_name }}-${{ github.run_id }}
+    restore-keys: obsidian-sync-state-${{ github.ref_name }}-
+</code></pre>
+<p>这里有个小心思：<strong>保存用的 key 带上 <code>run_id</code>（每次运行唯一），恢复用 <code>restore-keys</code> 前缀匹配</strong>。如果 key 是固定的，Actions Cache 的条目不可更新，永远只能读到第一次的值；带 run_id 的 key 每次存新条目，前缀回退保证能拿到最近一次的游标。状态文件设计了容错：JSON 损坏时按空游标处理，全量重新拉取——反正物化环节是幂等的，代价只是慢一点。</p>
+<h2>调度：两个工作流的分工</h2>
+<ul>
+<li><strong><code>obsidian-sync-push.yml</code></strong>：监听每一次 push（手动在仓库里改了东西也会顺手同步一遍）；</li>
+<li><strong><code>obsidian-sync-hourly.yml</code></strong>：每小时定时跑一次，保证剪藏到发布的延迟上限是一小时。</li>
+</ul>
+<p>两个工作流共享同一套步骤，结尾有个容易忽略的细节：</p>
+<pre><code># UTC 当天最后一次定时运行，追加一个空提交
+if [ "$IS_SCHEDULE" = "true" ] &amp;&amp; [ "$(date -u +%H)" = "23" ]; then
+  git commit --allow-empty -m "chore: keep scheduled workflows active"
+fi
+</code></pre>
+<p>这是对 GitHub 一条冷规则的防御：<strong>仓库 60 天没有提交，定时工作流会被自动停用</strong>。纯靠剪藏内容的仓库可能一两个月都没有新提交，所以每天 UTC 的最后一次定时运行会补一个空提交保活。这条 keepalive 提交会被下游的触发工作流明确识别并跳过，不会引发多余构建。</p>
+<p>同步结果有变化时以 <code>github-actions[bot]</code> 身份提交，提交信息固定为 <code>chore(content): sync obsidian notes</code>——这个固定前缀是下游判断的依据。</p>
+<h2>和构建链路的握手：一个反直觉的坑</h2>
+<p>同步工作流自己不做构建派发，原因藏在这句话里：<strong>用 <code>GITHUB_TOKEN</code> 推送的提交，不会触发其他工作流</strong>。这是 GitHub 防止工作流递归触发的硬规则。</p>
+<p>所以「同步提交 → 主题仓构建」这一环不能靠 push 事件，而是让 <code>trigger-build.yml</code> 监听 <strong><code>workflow_run</code></strong> 事件——同步工作流跑完（无论有没有新提交），触发器检查最近一次提交：是同步提交就派发构建，是每日保活空提交就跳过。上一篇文章里提到的「push 事件直通派发」是后来为 CMS 补的通道，两条链路在同一个工作流里汇合，靠提交信息区分彼此。</p>
+<h2>失败可见：企业微信通知</h2>
+<p>无人值守的流水线最怕静默失败。同步成功且本次拉到内容时，会通过企业微信 Webhook 推一条摘要：拉了几篇文章、每篇的正文来源（page/clip）、下载了多少张图。设计上刻意保守——没配置凭据、没拉到内容、推送失败都只记日志，绝不影响同步和提交本身。跑了一年多，它抓到过公众号改版导致的抽取失败，也抓到过图片服务防盗链升级，都靠这条消息第一时间发现。</p>
+<h2>复刻这套东西需要什么</h2>
+<ul>
+<li>一个能提供 GraphQL 接口的剪藏服务（我用的是「笔记同步助手」），API Key 放进仓库 Secrets 的 <code>OBSIDIAN_SYNCER_API_KEY</code>；</li>
+<li>内容仓里的 <code>scripts/content/</code> 四个脚本（拉取、网页转换、格式化、通知）；</li>
+<li>两个工作流文件，加上 <code>npm run sync</code> 依赖的 <code>cheerio</code> 和 <code>turndown</code>；</li>
+<li>可选的企业微信机器人 Webhook（<code>WECOM_WEBHOOK_URL</code>），本地想手动跑一次同步也是同一条命令。</li>
+</ul>
+<p>:::tip
+排查同步问题先看三样东西：Actions 的运行日志、文章目录里的 <code>res.json</code>（服务端原始数据）、状态文件的 <code>last_sync_status</code>。三者的时间线对齐之后，问题多半自己就现形了。
+:::</p>
+<h2>结语</h2>
+<p>这条流水线和上一篇的 Sveltia CMS 构成了博客内容侧的两条腿：<strong>深度写作走 Obsidian</strong>（剪藏、批注、本地编辑，由流水线搬运），<strong>轻量管理走 CMS</strong>（说说、相册、随手修订，浏览器里直接改）。两者最终汇入同一个 Git 仓，由同一条构建链路发布。</p>
+<p>工具链搭好之后的爽感在于：剪藏的那一刻，文章已经在路上了。</p>
+]]></content>
+    <author><name>TangKai</name></author>
+    <category term="Blog"/>
+  </entry>
   <entry>
     <title>给博客接入 Sveltia CMS：无后端可视化内容管理实践</title>
     <link href="https://tangkai.me/posts/2026-09-13-sveltia-cms-for-shirone-content/" rel="alternate" type="text/html"/>
@@ -2064,6 +2161,7 @@ minMagisk=24.0         # 最低兼容Magisk版本
 <p><img src="./pic/image-f359e2d913e699a4.png" alt="" /></p>
 ]]></content>
     <author><name>TangKai</name></author>
+    <category term="公众号文章"/>
   </entry>
   <entry>
     <title>脑出血定位总搞混？这篇帮你理清</title>
@@ -2278,6 +2376,7 @@ minMagisk=24.0         # 最低兼容Magisk版本
 <p><img src="./pic/image-57943580d9ea5283.webp" alt="图片" /></p>
 ]]></content>
     <author><name>TangKai</name></author>
+    <category term="公众号文章"/>
   </entry>
   <entry>
     <title>神经病理性疼痛怎么开药？先用什么、多久加量、何时换药？</title>
@@ -2374,6 +2473,7 @@ minMagisk=24.0         # 最低兼容Magisk版本
 <p><img src="./pic/image-9fd6eea97337ea6c.webp" alt="图片" /></p>
 ]]></content>
     <author><name>TangKai</name></author>
+    <category term="公众号文章"/>
   </entry>
   <entry>
     <title>同是脑栓塞，病因可能完全不同：6 类栓子如何从影像中识别？</title>
@@ -2436,6 +2536,7 @@ minMagisk=24.0         # 最低兼容Magisk版本
 <p><img src="./pic/image-9fd6eea97337ea6c.webp" alt="图片" /></p>
 ]]></content>
     <author><name>TangKai</name></author>
+    <category term="公众号文章"/>
   </entry>
   <entry>
     <title>乌拉地尔的用法用量</title>
@@ -2534,6 +2635,7 @@ minMagisk=24.0         # 最低兼容Magisk版本
 <p><img src="./pic/image-7630f5e920eb4889.png" alt="" /></p>
 ]]></content>
     <author><name>TangKai</name></author>
+    <category term="公众号文章"/>
   </entry>
   <entry>
     <title>卒中进展加重，如何处理？这 5 个方面要重点关注</title>
