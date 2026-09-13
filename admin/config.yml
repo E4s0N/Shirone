@@ -1,0 +1,242 @@
+# yaml-language-server: $schema=https://unpkg.com/@sveltia/cms/schema/sveltia-cms.json
+# ==============================================================================
+# Sveltia CMS 配置 —— Shirone 内容仓库
+#
+# 管理界面入口：https://tangkai.me/admin/（由本仓库 public/admin/ 经 content:sync
+# 物化到主题 public/ 后随站点一起部署）。
+#
+# 字段与主题内容模式（Shirone/src/content.config.ts）一一对应；未收录的
+# config/*.yaml 与 data/*.ts 仍走 Git 手工维护（表单化编辑会丢失注释与类型）。
+# ==============================================================================
+
+backend:
+  name: github
+  repo: E4s0N/Shirone-Content
+  branch: main
+  # 首次使用：登录页点「Sign In with Token」，粘贴一个 GitHub PAT（repo 权限）即可。
+  # 若部署了 Sveltia CMS Authenticator（Cloudflare Worker 版 OAuth 客户端），
+  # 取消下一行注释并填入 Worker 地址，即可用「Sign In with GitHub」：
+  base_url: https://sveltia-cms-auth.tkboyfun.workers.dev/
+
+# 品牌信息（遵循站点 config/site.yaml 的身份设定）
+site_url: https://tangkai.me/
+logout_redirect_url: https://tangkai.me/
+app_title: "Tangkai's Blog · 内容管理"
+logo:
+  src: /assets/favicon/TK.png
+  show_in_header: true
+
+# 默认媒体库：public/images/ 在站点上映射为 /images/（说说、页面配图等公共资源）
+media_folder: /public/images
+public_folder: /images
+
+# 上传文件名统一为 slug 格式，避免空格与特殊字符破坏 Markdown 引用
+media_libraries:
+  all:
+    slugify_filename: true
+
+# 空的可选字段不写入文件，防止 `updated: ""` 之类的空值触发 Astro 构建期
+# 内容模式（z.date() 等）校验失败
+output:
+  omit_empty_optional_fields: true
+
+collections:
+  # ---------------------------------------------------------------- 文章 ----
+  # 页面打包结构：<YYYY-MM-DD-标题>/index.md，配图随 pic/ 子目录存放，
+  # 与 Obsidian 同步脚本（scripts/content/sync-obsidian.mjs）产出完全一致
+  - name: posts
+    label: 文章
+    label_singular: 文章
+    icon: article
+    folder: content/posts
+    path: '{{slug}}/index'
+    slug: "{{published | date('YYYY-MM-DD')}}-{{slug}}"
+    media_folder: pic
+    public_folder: pic
+    preview_path: /posts/{{slug}}/
+    sortable_fields:
+      fields: [title, published, updated]
+      default:
+        field: published
+        direction: descending
+    view_groups:
+      - label: 草稿
+        field: draft
+      - label: 年份
+        field: published
+        pattern: '\d{4}'
+    fields:
+      - { name: title, label: 标题, widget: string }
+      - name: published
+        label: 发布时间
+        widget: datetime
+        default: '{{now}}'
+        input_timezone: Asia/Shanghai
+        step: 1
+      - name: updated
+        label: 更新时间
+        widget: datetime
+        required: false
+        input_timezone: Asia/Shanghai
+        step: 1
+      - { name: description, label: 摘要, widget: text, required: false }
+      - { name: image, label: 封面图, widget: image, required: false }
+      - { name: category, label: 分类, widget: string, required: false }
+      - { name: tags, label: 标签, widget: list, required: false }
+      - { name: draft, label: 草稿, widget: boolean, default: false }
+      - { name: pinned, label: 置顶, widget: boolean, default: false }
+      - { name: comment, label: 显示评论, widget: boolean, default: true }
+      - { name: encrypted, label: 加密文章, widget: boolean, default: false }
+      - { name: password, label: 访问密码, widget: string, required: false }
+      - { name: passwordHint, label: 密码提示, widget: string, required: false }
+      - { name: hideHomeContent, label: 首页隐藏加密内容, widget: boolean, default: true }
+      # 正文用纯文本代码编辑器而非富文本：Shirone 的自定义容器语法
+      # （:::: field-group、@[code-tree] 等）经富文本序列化会被改写
+      - name: body
+        label: 正文
+        widget: code
+        output_code_only: true
+        default_language: markdown
+        allow_language_selection: false
+
+  # ---------------------------------------------------------------- 说说 ----
+  - name: moments
+    label: 说说
+    label_singular: 说说
+    icon: forum
+    folder: content/moments
+    slug: "{{published | date('YYYY-MM-DD')}}-{{uuid_short}}"
+    summary: "{{published | date('YYYY-MM-DD HH:mm')}} {{body | truncate(40, '…')}}"
+    thumbnail: images.*.src
+    media_folder: /public/images/moments
+    public_folder: /images/moments
+    sortable_fields:
+      fields: [published]
+      default:
+        field: published
+        direction: descending
+    fields:
+      - name: published
+        label: 发布时间
+        widget: datetime
+        default: '{{now}}'
+        input_timezone: Asia/Shanghai
+        step: 1
+      - { name: location, label: 地点, widget: string, required: false }
+      - name: mood
+        label: 心情图标
+        widget: string
+        required: false
+        hint: Iconify 图标名，如 material-symbols:sentiment-satisfied-outline-rounded
+      - { name: tags, label: 标签, widget: list, required: false }
+      - name: images
+        label: 配图
+        widget: list
+        required: false
+        hint: 图片保存到 public/images/moments/，站点按 /images/moments/ 引用并自动生成缩略图
+        fields:
+          - { name: src, label: 图片, widget: image }
+          - { name: alt, label: 图片描述, widget: string, required: false }
+      - { name: pinned, label: 置顶, widget: boolean, default: false }
+      - { name: draft, label: 草稿, widget: boolean, default: false }
+      - { name: body, label: 内容, widget: markdown }
+
+  # ---------------------------------------------------------------- 页面 ----
+  - name: spec
+    label: 页面
+    label_singular: 页面
+    icon: info
+    files:
+      - name: about
+        label: 关于我
+        file: content/spec/about.md
+        media_folder: /public/images/spec
+        public_folder: /images/spec
+        fields:
+          - { name: title, label: 标题, widget: string }
+          - { name: description, label: 描述, widget: string, required: false }
+          - { name: body, label: 正文, widget: markdown }
+      - name: friends
+        label: 友链申请
+        file: content/spec/friends.md
+        media_folder: /public/images/spec
+        public_folder: /images/spec
+        fields:
+          - { name: title, label: 标题, widget: string }
+          - { name: description, label: 描述, widget: string, required: false }
+          - { name: body, label: 正文, widget: markdown }
+
+  # ---------------------------------------------------------------- 相册 ----
+  # 相册即 public/images/albums/<slug>/ 文件夹：info.json 为元数据，
+  # 照片直接上传到相册文件夹（本地模式按文件名自动排序），字段契约见
+  # 主题 src/utils/album-scanner.ts
+  - name: albums
+    label: 相册
+    label_singular: 相册
+    icon: photo_library
+    folder: public/images/albums
+    path: '{{slug}}/info'
+    slug: '{{fields._slug}}'
+    format: json
+    extension: json
+    media_folder: ''
+    public_folder: ''
+    sortable_fields:
+      fields: [title, date]
+      default:
+        field: date
+        direction: descending
+    fields:
+      - { name: title, label: 相册名称, widget: string }
+      - { name: description, label: 相册描述, widget: text, required: false }
+      - name: date
+        label: 拍摄日期
+        widget: datetime
+        type: date
+        input_timezone: Asia/Shanghai
+      - { name: location, label: 地点, widget: string, required: false }
+      - { name: tags, label: 标签, widget: list, required: false }
+      - name: layout
+        label: 照片布局
+        widget: select
+        options: [masonry, grid]
+        default: masonry
+      - name: columns
+        label: 瀑布流列数
+        widget: number
+        value_type: int
+        min: 2
+        max: 4
+        default: 3
+      - { name: hidden, label: 隐藏相册, widget: boolean, default: false }
+      - { name: password, label: 访问密码, widget: string, required: false }
+      - { name: passwordHint, label: 密码提示, widget: string, required: false }
+      - name: mode
+        label: 照片来源
+        widget: select
+        options:
+          - { label: 本地照片, value: local }
+          - { label: 外链图床, value: external }
+        default: local
+        hint: 外链模式需在下方 photos 列表填写图片直链，并把 cover 设为封面地址
+      - name: cover
+        label: 封面地址
+        widget: string
+        required: false
+        hint: 外链模式必填；本地模式自动使用相册文件夹内的 cover.webp / cover.jpg
+      - name: photos
+        label: 外链照片
+        widget: list
+        required: false
+        fields:
+          - { name: src, label: 图片直链, widget: string }
+          - { name: thumbnail, label: 缩略图直链, widget: string, required: false }
+          - { name: alt, label: 图片描述, widget: string, required: false }
+          - { name: title, label: 照片标题, widget: string, required: false }
+          - { name: date, label: 拍摄日期, widget: string, required: false, hint: 'YYYY-MM-DD' }
+          - { name: location, label: 地点, widget: string, required: false }
+          - { name: camera, label: 相机, widget: string, required: false }
+          - { name: lens, label: 镜头, widget: string, required: false }
+          - { name: settings, label: 拍摄参数, widget: string, required: false }
+          - { name: width, label: 宽（像素）, widget: number, value_type: int, required: false }
+          - { name: height, label: 高（像素）, widget: number, value_type: int, required: false }
