@@ -10,6 +10,7 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
+- [给博客接入 Sveltia CMS：无后端可视化内容管理实践](https://tangkai.me/posts/2026-09-13-sveltia-cms-for-shirone-content/): 在 Shirone 双仓内容分离架构下接入 Sveltia CMS 的完整实践：把管理页托管进内容仓、按页面打包建模、绕开 Astro 构建期的 YAML 日期与空值陷阱、定制成稿预览面板，以及一条差点被漏掉的 CI 触发路径。
 - [CREST-2 结果终揭晓：无症状颈动脉狭窄，我们真的还需要](https://tangkai.me/posts/2026-09-13-crest-2-结果终揭晓-无症状颈动脉狭窄-我们真的还需要/)
 - [「帕金森病」和「帕金森综合征」如何区分？3 张表帮你总结好了](https://tangkai.me/posts/2026-09-13-帕金森病-和-帕金森综合征-如何区分-3-张表帮你总结好了/)
 - [抗抑郁药“五朵金花”：舍曲林、帕罗西汀、氟西汀、艾司西酞普兰](https://tangkai.me/posts/2026-09-09-抗抑郁药-五朵金花-舍曲林-帕罗西汀-氟西汀-艾司西酞普兰/)

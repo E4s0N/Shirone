@@ -4,6 +4,153 @@
 
 ---
 
+## 给博客接入 Sveltia CMS：无后端可视化内容管理实践
+
+- **URL**: https://tangkai.me/posts/2026-09-13-sveltia-cms-for-shirone-content/
+- **Published**: 2026-09-13
+- **Category**: Blog
+- **Tags**: Sveltia CMS, 静态博客, Astro, GitHub Actions
+- **Description**: 在 Shirone 双仓内容分离架构下接入 Sveltia CMS 的完整实践：把管理页托管进内容仓、按页面打包建模、绕开 Astro 构建期的 YAML 日期与空值陷阱、定制成稿预览面板，以及一条差点被漏掉的 CI 触发路径。
+
+我的博客采用 Shirone 主题的「内容分离」双仓架构：内容仓只放文章、说说、相册和配置覆盖，代码仓放主题源码与构建流水线，推送内容后由 GitHub Actions 跨仓触发重建。这套架构在终端里写作非常舒服——Obsidian 同步、`git push`、自动构建一气呵成。
+
+但它有一个天然的短板：**写作入口只有 Git**。想在手机上随手发一条说说、在别人的电脑上改个错别字、或者给相册补两张照片，都得先找到一台配好环境的电脑。
+
+于是我把 [Sveltia CMS](https://sveltiacms.app/) 接进了内容仓——一个基于 Git 的无后端 CMS，浏览器里直接读写仓库文件，不需要数据库、不需要服务器，每次保存就是一次 Git 提交。这篇文章记录完整的接入过程和踩坑记录。
+
+## 选型：为什么是 Sveltia CMS
+
+需求清单其实很短：内容必须留在 Git 仓（这是双仓架构的根基）、不能引入常驻服务、最好零成本。
+
+| 候选 | 结论 |
+| :--- | :--- |
+| Sveltia CMS | 单文件脚本，配置格式兼容 Decap，性能与中文体验最好，**唯一完全满足需求** |
+| Decap CMS（原 Netlify CMS） | 同类但更老，性能与编辑器体验明显落后，Sveltia 就是它的现代替代品 |
+| TinaCMS | 官方支持界面主题定制，但需要 Tina Cloud 或自建后端，违背零服务器原则 |
+| Keystatic | 界面精致，但 GitHub 模式需要 SSR 路由，纯静态部署不友好 |
+| Payload / Directus 等 | 内容进数据库，整个 Git 架构直接作废，不在候选之列 |
+
+唯一的遗憾是 Sveltia 的管理界面样式由自身捆绑、不提供 CSS 定制。不过它暴露了足够的品牌化配置和预览模板 API（下文会用到），「和站点长得像」这件事可以做到八成。
+
+## 总体架构：管理页托管进内容仓
+
+Sveltia CMS 的本体就是一个 `index.html` + 一份 `config.yml`。关键决策是**把它放在内容仓的 `public/admin/` 目录**——因为双仓同步时 `public/ → public/` 原样映射，管理页会随站点一起构建部署，线上入口就是 `https://tangkai.me/admin/`。
+
+这样做的收益：
+
+- **主题仓保持干净**，随时可以无冲突地跟上游更新（这正是内容分离架构的核心卖点）；
+- `config.yml` 本质是内容模型的描述，和内容放在一起，改内容模型时一次提交全部搞定；
+- CMS 提交、管理页配置变更都属于内容仓的事务，CI 触发逻辑收敛在一处。
+
+认证走 GitHub 后端，两种方式：登录页点「Sign In with Token」粘贴一个 PAT 即可使用，零配置；或者部署官方的 Sveltia CMS Authenticator（一个 Cloudflare Worker）拿到「Sign In with GitHub」按钮。我两个都配了，后者日常用，前者留作兜底。
+
+## 内容建模：让 CMS 认识 Shirone 的约定
+
+内容仓的文章是 Hugo 式页面打包：`content/posts/<YYYY-MM-DD-标题>/index.md`，配图放在同目录的 `pic/` 子目录。这靠 Sveltia 的 `path` + `slug` 两个模板精确复刻：
+
+```yaml
+- name: posts
+  folder: content/posts
+  path: '{{slug}}/index'          # 每篇文章一个文件夹 + index.md
+  slug: "{{published | date('YYYY-MM-DD')}}-{{slug}}"
+  media_folder: pic                # 配图跟随文章，存进 pic/
+  public_folder: pic
+```
+
+实测新建一篇文章，落盘就是 `content/posts/2026-09-13-标题/index.md`，与 Obsidian 同步脚本的产出结构完全一致。说说集合则用 `日期-uuid短码` 的 slug 模板，配图走 `public/images/moments/`——主题的缩略图管线精确匹配这个路径，上传后自动生成缩略图。相册集合直接建模 `public/images/albums/<slug>/info.json`，照片上传到相册文件夹，缩略图仍由原有的 GitHub Actions 工作流补齐。
+> **[NOTE]**
+> `config/*.yaml`（站点配置覆盖）和 `data/*.ts`（友链、追番等结构化数据）**刻意不进 CMS**：表单化编辑会把文件重写为仅含表单字段的内容，所有注释都会丢失。这两类文件继续走 Git 维护。
+
+## 第一个大坑：Astro 构建期的 YAML 日期
+
+主题的内容模式用 `z.date()` 校验 `published` 字段，而 Astro 底层的 js-yaml 对日期的解析有个微妙的规则：**不带引号的 ISO 时间戳会被解析成 `Date` 对象，带引号的字符串只是字符串**。
+
+```yaml
+published: 2026-09-13T17:20:00+08:00      # js-yaml → Date ✓
+published: "2026-09-13T17:20:00+08:00"    # js-yaml → 字符串 ✗ 构建失败
+```
+
+这意味着 CMS 保存的 YAML 必须让日期值以不带引号的形式落盘。好消息是 Sveltia 用 YAML 1.2 的 `yaml` 包序列化，时间戳字符串天然不带引号，两边刚好咬合——但这个咬合是「刚好」，不是「保证」，升级任何一方的序列化行为都可能翻车。
+
+另一个相关陷阱是空值：如果 CMS 把空的 `updated` 字段写成 `updated: ""`，`z.date()` 同样会当场报错。解法是 Sveltia 的全局输出选项：
+
+```yaml
+output:
+  omit_empty_optional_fields: true
+```
+
+空的可选字段直接不写入文件，从根上杜绝空字符串撞上严格类型校验。时区也不能含糊：日期时间组件统一配置 `input_timezone: Asia/Shanghai`，保存出的是带 `+08:00` 偏移的 ISO 时间，与站点配置的时区一致。
+
+## 第二个大坑：富文本编辑器会「翻译」你的 Markdown
+
+Sveltia 的富文本编辑器基于 Lexical，保存时会把整个 Markdown 正文**重新序列化**一遍——列表标记、缩进、换行全按它自己的规范输出。对标准 Markdown 无伤大雅，但 Shirone 有一整套自定义容器语法（`:::: field-group`、`@[code-tree]`……），经富文本中转一遍很难保证毫发无损。
+
+所以正文字段必须用纯文本组件，所见即所存：
+
+```yaml
+- name: body
+  label: 正文
+  widget: text
+  use_emoji_autocomplete: false   # 关掉，免得 ::: 语法触发表情面板
+```
+
+代价是没有语法高亮，但配合下文的渲染预览，实际写作体验反而是「左写源码、右看成稿」，比在代码编辑器里盲写更舒服。这里我还踩过一个偶发 bug：基于 Lexical 的代码组件对长文懒加载高亮，偶尔打开时正文框一片空白要刷新才恢复——换成朴素的多行文本框后，这类问题从根源上消失了。
+
+## 预览面板：把 Markdown 渲染成成稿
+
+默认的预览面板只是把字段原值罗列出来，正文区躺着一坨 Markdown 源码。Sveltia 提供了 `registerPreviewTemplate` API，我用一个自定义脚本把预览改成了「接近成稿」的阅读视图：
+
+- 用官方 `CMS.renderRichText()` 管线把 Markdown 正文渲染成 HTML，标题、列表、链接、代码块全部生效；
+- 预览顶部渲染标题、发布时间、分类、标签元信息和封面图；
+- 排版样式（中文字体栈、代码块、引用块、主题强调色）直接注入预览 iframe，不依赖站点构建产物。
+
+中间有个很隐蔽的坑：`renderRichText` 只接受**主文档**的元素，直接把预览 iframe 里的元素传进去会抛 `TypeError`（跨 document 的 `instanceof` 检查失败）。解法是先在主文档渲染，再用 `adoptNode` 把结果过继给 iframe；同时用 CMS 暴露的 `marked` + `DOMPurify` 做了兜底路径。
+
+```js
+function renderBody(element, body) {
+  var host = document.createElement('div');          // 主文档
+  CMS.renderRichText(host, body);
+  element.appendChild(element.ownerDocument.adoptNode(host));
+}
+```
+> **[TIP]**
+> CMS 暴露的 `getAsset()` 能把仓库相对路径解析成可预览的 blob URL，封面图和正文里的相对图片都可以尝试解析，解析不了的留给「在在线站点查看」兜底。
+
+## 第三个坑：CI 触发路径的漏网之鱼
+
+内容仓原有的触发工作流只为 Obsidian 同步设计：检测到同步提交才向主题仓派发构建事件。接入 CMS 后我给它加了对 push 事件的路径过滤，但当时写的是 `public/images/**`——直到某次只改了 `public/admin/config.yml` 推送上去，主题仓毫无动静才意识到：**管理页自己的配置变更不在过滤路径里**。
+
+而管理页是从部署好的站点加载 `config.yml` 的，不重新构建就永远不生效。修复很简单，把 `public/` 整个目录纳入过滤：
+
+```yaml
+on:
+  push:
+    branches: [main]
+    paths:
+      - "content/**"
+      - "config/**"
+      - "data/**"
+      - "assets/**"
+      - "public/**"          # 含相册、说说图片，也含 CMS 管理页
+      - "shirone.content.json"
+```
+
+Obsidian 同步提交仍走原来的 `workflow_run` 链路，不会因为 push 事件重复构建。顺便还留了个小巧思：工作流修改本身（`.github/**`）不触发构建，所以改完工作流后需要手动 Run 一次，之后的日常就全自动了。
+
+## 现在的写作流
+
+接入完成后的日常是这样的：
+
+- **长文**照旧在 Obsidian 里写，同步链路每小时拉取——深度写作的体验无可替代；
+- **说说、相册、错别字修正、发文前的元数据调整**，打开 `/admin/` 两分钟搞定，手机上也能用；
+- 所有 CMS 保存都是规范的 Git 提交（带 `Create/Update/Delete <集合>` 信息），历史可追溯、可回滚，和手工提交完全平等。
+> **[IMPORTANT]**
+> 整个方案没有引入任何常驻服务：CMS 是一个静态页面，认证靠 GitHub PAT 或一个免费的 Cloudflare Worker，构建仍走原有的 GitHub Actions。内容、历史、自动化全部留在 Git 仓里——这才是「接入 CMS」而不是「迁移到 CMS」。
+
+如果你想在自己的 Shirone 博客上做同样的事，内容仓的 `docs/zh-CN/05-cms/` 里有完整的操作指南。
+
+---
+
 ## CREST-2 结果终揭晓：无症状颈动脉狭窄，我们真的还需要
 
 - **URL**: https://tangkai.me/posts/2026-09-13-crest-2-结果终揭晓-无症状颈动脉狭窄-我们真的还需要/
