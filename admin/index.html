@@ -19,8 +19,8 @@
  * Shirone 预览模板 —— 把编辑器右侧的预览面板变成"接近成稿"的阅读视图
  *
  * 通过 Sveltia CMS 官方 API 注册：
- *   - registerPreviewTemplate：用 CMS.renderRichText() 把 Markdown 正文
- *     渲染成 HTML（与预览面板同一管线），并解析相对路径图片为可预览地址；
+ *   - registerPreviewTemplate：用 CMS 暴露的 marked + DOMPurify 把 Markdown
+ *     正文同步渲染成 HTML，并解析相对路径图片为可预览地址；
  *   - 样式通过 preview iframe 的 document 注入（见 PREVIEW_CSS），
  *     跟随 config/site.yaml 的 Material 3 排版气质（hue 160 强调色）。
  *
@@ -106,28 +106,19 @@
     return null;
   }
 
-  /** 用 CMS.renderRichText 渲染 Markdown 正文，并尽力解析正文中的相对图片。
-   *  renderRichText 只接受主文档元素，需先在主文档渲染再 adopt 进预览 iframe；
-   *  若该管线失败（版本差异等），回退到 CMS 暴露的 marked + DOMPurify。 */
+  /** 用 CMS 暴露的 marked + DOMPurify 同步渲染 Markdown 正文，并尽力解析
+   *  正文中的相对图片。不用 CMS.renderRichText：它内部会挂载 Sveltia 组件，
+   *  在远程（GitHub）模式下组件的 store 上下文不完整，会抛出
+   *  "reading 'current'" 异常导致预览中断。 */
   function renderBody(element, body, getAsset) {
     if (!element) return;
-    var doc = element.ownerDocument;
     element.innerHTML = '';
     if (!body) return;
-    var rendered = false;
     try {
-      var host = document.createElement('div');
-      CMS.renderRichText(host, body);
-      element.appendChild(doc.adoptNode(host));
-      rendered = true;
-    } catch (error) { /* 回退到 marked */ }
-    if (!rendered) {
-      try {
-        var html = window.marked ? window.marked.parse(body) : '';
-        element.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
-      } catch (fallbackError) {
-        element.textContent = body;
-      }
+      var html = window.marked ? window.marked.parse(body) : '';
+      element.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
+    } catch (error) {
+      element.textContent = body;
     }
     requestAnimationFrame(function () {
       var images = element.querySelectorAll('img');
