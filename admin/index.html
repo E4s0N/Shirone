@@ -11,6 +11,224 @@
     <script src="https://unpkg.com/@sveltia/cms@0.211.3/dist/sveltia-cms.js"></script>
     <!-- v= 参数用于缓存击穿：托管平台的 SPA 回退会在部署换装窗口把 index.html
          当作缺失文件返回并污染缓存，改 URL 即可绕开，更新本文件时顺手递增 -->
-    <script src="./preview.js?v=20260913-2"></script>
+    <!-- 预览模板脚本内联：独立 .js 文件会被托管平台的 SPA 回退在部署换装窗口
+         污染（返回 index.html 被浏览器缓存为 preview.js），内联后无此问题。
+         更新脚本后提交推送、随站点重新部署即生效。 -->
+    <script>
+/* ==============================================================================
+ * Shirone 预览模板 —— 把编辑器右侧的预览面板变成"接近成稿"的阅读视图
+ *
+ * 通过 Sveltia CMS 官方 API 注册：
+ *   - registerPreviewTemplate：用 CMS.renderRichText() 把 Markdown 正文
+ *     渲染成 HTML（与预览面板同一管线），并解析相对路径图片为可预览地址；
+ *   - 样式通过 preview iframe 的 document 注入（见 PREVIEW_CSS），
+ *     跟随 config/site.yaml 的 Material 3 排版气质（hue 160 强调色）。
+ *
+ * 本文件由 public/admin/index.html 在 sveltia-cms.js 之后加载，
+ * 需与 config.yml 中的集合名（posts / moments / about / friends）对应。
+ * ============================================================================== */
+(function () {
+  'use strict';
+
+  var PREVIEW_CSS = [
+    '.shirone-preview { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px;',
+    '  font-family: var(--font-sans, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif);',
+    '  line-height: 1.8; color: #1f1f1f; font-size: 16px; word-break: break-word; }',
+    '.shirone-preview .sp-title { font-size: 1.75rem; font-weight: 700; line-height: 1.3; margin: 8px 0 4px; }',
+    '.shirone-preview .sp-meta { font-size: 0.85rem; color: #6b7280; margin: 0 0 20px; }',
+    '.shirone-preview .sp-cover, .shirone-preview .sp-gallery img { display: block; max-width: 100%;',
+    '  height: auto; border-radius: 16px; margin: 20px auto; }',
+    '.shirone-preview .sp-gallery { display: grid; gap: 8px; }',
+    '.shirone-preview .sp-body h1, .shirone-preview .sp-body h2, .shirone-preview .sp-body h3,',
+    '.shirone-preview .sp-body h4 { line-height: 1.4; margin: 1.6em 0 0.6em; }',
+    '.shirone-preview .sp-body h1 { font-size: 1.5rem; font-weight: 700; }',
+    '.shirone-preview .sp-body h2 { font-size: 1.3rem; font-weight: 700; padding-bottom: 0.3em;',
+    '  border-bottom: 1px solid rgba(0, 0, 0, 0.08); }',
+    '.shirone-preview .sp-body h3 { font-size: 1.15rem; font-weight: 600; }',
+    '.shirone-preview .sp-body h4 { font-size: 1rem; font-weight: 600; }',
+    '.shirone-preview .sp-body p { margin: 0.9em 0; }',
+    '.shirone-preview .sp-body a { color: oklch(45% 0.11 160); text-decoration: underline;',
+    '  text-underline-offset: 3px; word-break: break-all; }',
+    '.shirone-preview .sp-body img { display: block; max-width: 100%; height: auto;',
+    '  border-radius: 12px; margin: 20px auto; }',
+    '.shirone-preview .sp-body code { font-family: var(--font-mono, ui-monospace, Consolas, monospace);',
+    '  font-size: 0.875em; background: rgba(0, 0, 0, 0.06); border-radius: 6px; padding: 0.15em 0.4em; }',
+    '.shirone-preview .sp-body pre { background: #1e1e1e; color: #e8e8e8; border-radius: 8px;',
+    '  padding: 16px; overflow-x: auto; line-height: 1.6; }',
+    '.shirone-preview .sp-body pre code { background: transparent; color: inherit; padding: 0; font-size: 0.85rem; }',
+    '.shirone-preview .sp-body blockquote { margin: 1.2em 0; padding: 4px 16px;',
+    '  border-left: 4px solid oklch(55% 0.1 160); background: rgba(0, 0, 0, 0.03); color: #52525b;',
+    '  border-radius: 0 8px 8px 0; }',
+    '.shirone-preview .sp-body ul, .shirone-preview .sp-body ol { padding-left: 1.6em; margin: 0.9em 0; }',
+    '.shirone-preview .sp-body li { margin: 0.3em 0; }',
+    '.shirone-preview .sp-body hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 2em 0; }',
+    '.shirone-preview .sp-body table { border-collapse: collapse; margin: 1.2em auto; width: 100%; }',
+    '.shirone-preview .sp-body th, .shirone-preview .sp-body td { border: 1px solid rgba(0, 0, 0, 0.12);',
+    '  padding: 6px 12px; text-align: left; }',
+    '.shirone-preview .sp-body th { background: rgba(0, 0, 0, 0.04); font-weight: 600; }',
+  ].join('\n');
+
+  /** 往预览 iframe 的 document 注入一次样式（幂等） */
+  function injectStyles(doc) {
+    if (!doc || !doc.head || doc.getElementById('shirone-preview-style')) return;
+    var style = doc.createElement('style');
+    style.id = 'shirone-preview-style';
+    style.textContent = PREVIEW_CSS;
+    doc.head.appendChild(style);
+  }
+
+  function formatDate(value) {
+    if (!value) return '';
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+  }
+
+  function toPlainList(value) {
+    if (!value) return [];
+    if (value.toJS) return value.toJS();
+    return Array.prototype.slice.call(value);
+  }
+
+  /** 尝试若干路径变体，把仓库相对路径解析成预览可用的 blob/对象 URL */
+  function resolveAsset(getAsset, path) {
+    if (!path) return null;
+    var candidates = [path, path.replace(/^\.\//, ''), path.replace(/^\.?\//, '')];
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var asset = getAsset(candidates[i]);
+        if (asset && asset.url) return asset.url;
+      } catch (error) { /* 该路径无对应资源，继续尝试 */ }
+    }
+    return null;
+  }
+
+  /** 用 CMS.renderRichText 渲染 Markdown 正文，并尽力解析正文中的相对图片。
+   *  renderRichText 只接受主文档元素，需先在主文档渲染再 adopt 进预览 iframe；
+   *  若该管线失败（版本差异等），回退到 CMS 暴露的 marked + DOMPurify。 */
+  function renderBody(element, body, getAsset) {
+    if (!element) return;
+    var doc = element.ownerDocument;
+    element.innerHTML = '';
+    if (!body) return;
+    var rendered = false;
+    try {
+      var host = document.createElement('div');
+      CMS.renderRichText(host, body);
+      element.appendChild(doc.adoptNode(host));
+      rendered = true;
+    } catch (error) { /* 回退到 marked */ }
+    if (!rendered) {
+      try {
+        var html = window.marked ? window.marked.parse(body) : '';
+        element.innerHTML = window.DOMPurify ? window.DOMPurify.sanitize(html) : html;
+      } catch (fallbackError) {
+        element.textContent = body;
+      }
+    }
+    requestAnimationFrame(function () {
+      var images = element.querySelectorAll('img');
+      Array.prototype.forEach.call(images, function (img) {
+        var resolved = resolveAsset(getAsset, img.getAttribute('src'));
+        if (resolved) img.setAttribute('src', resolved);
+      });
+    });
+  }
+
+  function metaText(parts) {
+    return parts.filter(function (part) { return part; }).join(' · ');
+  }
+
+  /* ------------------------------------------------------------- 文章 ---- */
+  var PostPreview = createClass({
+    componentDidMount: function () { injectStyles(this.props.document); },
+    render: function () {
+      var entry = this.props.entry;
+      var self = this;
+      var tags = toPlainList(entry.getIn(['data', 'tags']));
+      var image = entry.getIn(['data', 'image']);
+      var cover = image ? resolveAsset(this.props.getAsset, image) : null;
+      var body = entry.getIn(['data', 'body']) || '';
+
+      var children = [
+        h('h1', { className: 'sp-title' }, entry.getIn(['data', 'title']) || ''),
+        h('p', { className: 'sp-meta' }, metaText([
+          formatDate(entry.getIn(['data', 'published'])),
+          entry.getIn(['data', 'category']) || '',
+          tags.length ? tags.map(function (tag) { return '#' + tag; }).join(' ') : '',
+        ])),
+      ];
+      if (cover) children.push(h('img', { className: 'sp-cover', src: cover, alt: '' }));
+      children.push(h('div', {
+        className: 'sp-body',
+        ref: function (element) { renderBody(element, body, self.props.getAsset); },
+      }));
+      return h('article', { className: 'shirone-preview' }, children);
+    },
+  });
+
+  /* ------------------------------------------------------------- 说说 ---- */
+  var MomentPreview = createClass({
+    componentDidMount: function () { injectStyles(this.props.document); },
+    render: function () {
+      var entry = this.props.entry;
+      var self = this;
+      var tags = toPlainList(entry.getIn(['data', 'tags']));
+      var images = toPlainList(entry.getIn(['data', 'images']));
+      var body = entry.getIn(['data', 'body']) || '';
+
+      var children = [
+        h('p', { className: 'sp-meta' }, metaText([
+          formatDate(entry.getIn(['data', 'published'])),
+          entry.getIn(['data', 'location']) || '',
+          tags.length ? tags.map(function (tag) { return '#' + tag; }).join(' ') : '',
+        ])),
+      ];
+      if (images.length) {
+        children.push(h('div', { className: 'sp-gallery' }, images.map(function (image, index) {
+          var url = resolveAsset(self.props.getAsset, image && image.src);
+          return url ? h('img', { key: index, src: url, alt: (image && image.alt) || '' }) : null;
+        })));
+      }
+      children.push(h('div', {
+        className: 'sp-body',
+        ref: function (element) { renderBody(element, body, self.props.getAsset); },
+      }));
+      return h('article', { className: 'shirone-preview' }, children);
+    },
+  });
+
+  /* ------------------------------------------------------------- 页面 ---- */
+  var SpecPreview = createClass({
+    componentDidMount: function () { injectStyles(this.props.document); },
+    render: function () {
+      var entry = this.props.entry;
+      var self = this;
+      var body = entry.getIn(['data', 'body']) || '';
+      var children = [
+        h('h1', { className: 'sp-title' }, entry.getIn(['data', 'title']) || ''),
+        h('p', { className: 'sp-meta' }, entry.getIn(['data', 'description']) || ''),
+        h('div', {
+          className: 'sp-body',
+          ref: function (element) { renderBody(element, body, self.props.getAsset); },
+        }),
+      ];
+      return h('article', { className: 'shirone-preview' }, children);
+    },
+  });
+
+  CMS.registerPreviewTemplate('posts', PostPreview);
+  CMS.registerPreviewTemplate('moments', MomentPreview);
+  CMS.registerPreviewTemplate('about', SpecPreview);
+  CMS.registerPreviewTemplate('friends', SpecPreview);
+
+  // 注册成功标记：DevTools 控制台应出现本行，用于确认页面跑的是新版脚本
+  console.info('[Shirone] 预览模板已注册：posts / moments / about / friends');
+  document.documentElement.dataset.cmsPreview = 'registered';
+})();
+    </script>
   </body>
 </html>

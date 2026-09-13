@@ -92,7 +92,7 @@ collections:
       - { name: hideHomeContent, label: 首页隐藏加密内容, widget: boolean, default: true }
       # 正文用纯文本编辑器而非富文本：Shirone 的自定义容器语法
       # （:::: field-group、@[code-tree] 等）经富文本序列化会被改写；
-      # 渲染效果由预览面板（preview.js 注册的模板）实时呈现
+      # 渲染效果由预览面板（index.html 内联的预览模板）实时呈现
       - name: body
         label: 正文
         widget: text
