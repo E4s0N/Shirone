@@ -9,6 +9,8 @@
     <!-- 版本固定：Sveltia 发版频繁，浮动 latest 可能在无感知时引入行为变化。
          升级方式：查 https://github.com/sveltia/sveltia-cms/releases 后改版本号并验证预览。 -->
     <script src="https://unpkg.com/@sveltia/cms@0.211.3/dist/sveltia-cms.js"></script>
-    <script src="./preview.js"></script>
+    <!-- v= 参数用于缓存击穿：托管平台的 SPA 回退会在部署换装窗口把 index.html
+         当作缺失文件返回并污染缓存，改 URL 即可绕开，更新本文件时顺手递增 -->
+    <script src="./preview.js?v=20260913-2"></script>
   </body>
 </html>
