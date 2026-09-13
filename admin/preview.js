@@ -207,4 +207,8 @@
   CMS.registerPreviewTemplate('moments', MomentPreview);
   CMS.registerPreviewTemplate('about', SpecPreview);
   CMS.registerPreviewTemplate('friends', SpecPreview);
+
+  // 注册成功标记：DevTools 控制台应出现本行，用于确认页面跑的是新版脚本
+  console.info('[Shirone] 预览模板已注册：posts / moments / about / friends');
+  document.documentElement.dataset.cmsPreview = 'registered';
 })();
