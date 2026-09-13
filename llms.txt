@@ -10,6 +10,7 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
+- [CREST-2 结果终揭晓：无症状颈动脉狭窄，我们真的还需要](https://tangkai.me/posts/2026-09-13-crest-2-结果终揭晓-无症状颈动脉狭窄-我们真的还需要/)
 - [「帕金森病」和「帕金森综合征」如何区分？3 张表帮你总结好了](https://tangkai.me/posts/2026-09-13-帕金森病-和-帕金森综合征-如何区分-3-张表帮你总结好了/)
 - [抗抑郁药“五朵金花”：舍曲林、帕罗西汀、氟西汀、艾司西酞普兰](https://tangkai.me/posts/2026-09-09-抗抑郁药-五朵金花-舍曲林-帕罗西汀-氟西汀-艾司西酞普兰/)
 - [无需脚本！Magisk 模块屏蔽安卓开机音效：原理+实操](https://tangkai.me/posts/2025-12-20-无需脚本-magisk模块屏蔽安卓开机音效-/)
