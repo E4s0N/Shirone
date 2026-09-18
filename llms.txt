@@ -10,6 +10,7 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
+- [有创呼吸机使用培训：谊安VG70](https://tangkai.me/posts/2026-09-18-有创呼吸机使用培训-谊安vg70/)
 - [双抗指南合集](https://tangkai.me/posts/2026-09-16-双抗指南合集/)
 - [未破裂动脉瘤的管理](https://tangkai.me/posts/2026-09-15-未破裂动脉瘤的管理/)
 - [从 Obsidian 到博客：一条全自动的内容同步流水线](https://tangkai.me/posts/2026-09-13-obsidian-sync-pipeline/): 解剖我博客里跑了一年多的 Obsidian 剪藏同步流水线：GraphQL 增量拉取、公众号正文抽取、远程图片本地化、Actions 缓存游标与 keepalive 提交，以及为什么 GITHUB_TOKEN 的提交不会触发构建。
