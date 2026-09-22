@@ -10,6 +10,7 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
+- [2026年5月1日发布新版TCCC原文——红色为更新内容](https://tangkai.me/posts/2026-09-22-2026年5月1日发布新版tccc原文-红色为更新内容/)
 - [有创呼吸机使用培训：谊安VG70](https://tangkai.me/posts/2026-09-18-有创呼吸机使用培训-谊安vg70/)
 - [双抗指南合集](https://tangkai.me/posts/2026-09-16-双抗指南合集/)
 - [未破裂动脉瘤的管理](https://tangkai.me/posts/2026-09-15-未破裂动脉瘤的管理/)
