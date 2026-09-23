@@ -14,9 +14,10 @@
     <updated>2026-09-23T00:00:00.000Z</updated>
     <summary></summary>
     <content type="html"><![CDATA[<h1>基于数字减影血管造影的颈动脉狭窄自动检测与定量：CASMatching 策略</h1>
-<h1><strong>基于数字减影血管造影的颈动脉狭窄自动检测与定量：CASMatching 策略</strong></h1>
 <blockquote>
-<p>本文为英文原文《CASMatching strategy for automated detection and quantification of carotid artery stenosis based on digital subtraction angiography》的中文翻译。 原文文件：<a href="https://file+.vscode-resource.vscode-cdn.net/d%3A/Code/Python/DSASegmentation/docs/markdown_CASMatching_strategy_for_automated_detection_and_quantification_of_carotid_artery_stenosis_based_on_digital_subtraction_angiography.md">markdown_CASMatching_strategy_for_automated_detection_and_quantification_of_carotid_artery_stenosis_based_on_digital_subtraction_angiography.md</a> 期刊：​<em>Computer Methods and Programs in Biomedicine</em>​（2023），DOI: <a href="https://dl.acm.org/doi/10.1016/j.cmpb.2023.107871">10.1016/j.cmpb.2023.107871</a></p>
+<p>本文为英文原文《CASMatching strategy for automated detection and quantification of carotid artery stenosis based on digital subtraction angiography》的中文翻译。  期刊：<em>Computer Methods and Programs in Biomedicine</em>（2023），DOI: <a href="https://dl.acm.org/doi/10.1016/j.cmpb.2023.107871">10.1016/j.cmpb.2023.107871</a></p>
+</blockquote>
+<blockquote>
 <p>翻译说明：</p>
 <ul>
 <li>参考文献列表保留英文原貌，便于检索与引用。</li>
