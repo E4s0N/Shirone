@@ -1,4 +1,725 @@
-<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Tangkai&apos;s Blog</title><description>A blog about Tangkai</description><link>https://tangkai.me/</link><language>zh_CN</language><item><title>DIAS：用于 DSA 序列中颅内动脉分割的数据集与基准</title><link>https://tangkai.me/posts/dias%E7%94%A8%E4%BA%8E-dsa-%E5%BA%8F%E5%88%97%E4%B8%AD%E9%A2%85%E5%86%85%E5%8A%A8%E8%84%89%E5%88%86%E5%89%B2%E7%9A%84%E6%95%B0%E6%8D%AE%E9%9B%86%E4%B8%8E%E5%9F%BA%E5%87%86/</link><guid isPermaLink="true">https://tangkai.me/posts/dias%E7%94%A8%E4%BA%8E-dsa-%E5%BA%8F%E5%88%97%E4%B8%AD%E9%A2%85%E5%86%85%E5%8A%A8%E8%84%89%E5%88%86%E5%89%B2%E7%9A%84%E6%95%B0%E6%8D%AE%E9%9B%86%E4%B8%8E%E5%9F%BA%E5%87%86/</guid><pubDate>Wed, 23 Sep 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;DIAS：用于 DSA 序列中颅内动脉分割的数据集与基准&lt;/h1&gt;
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Tangkai&apos;s Blog</title><description>A blog about Tangkai</description><link>https://tangkai.me/</link><language>zh_CN</language><item><title>基于OpenCV 的ECC​对延时摄影照片对齐与自动裁切</title><link>https://tangkai.me/posts/%E5%9F%BA%E4%BA%8Eopencv-%E7%9A%84ecc%E5%AF%B9%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E7%85%A7%E7%89%87%E5%AF%B9%E9%BD%90%E4%B8%8E%E8%87%AA%E5%8A%A8%E8%A3%81%E5%88%87/</link><guid isPermaLink="true">https://tangkai.me/posts/%E5%9F%BA%E4%BA%8Eopencv-%E7%9A%84ecc%E5%AF%B9%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E7%85%A7%E7%89%87%E5%AF%B9%E9%BD%90%E4%B8%8E%E8%87%AA%E5%8A%A8%E8%A3%81%E5%88%87/</guid><pubDate>Fri, 25 Sep 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;基于OpenCV 的ECC对延时摄影照片对齐与自动裁切&lt;/h1&gt;
+&lt;p&gt;拍日出延时，最怕部分帧抖动。手动对齐不现实，尤其当你有几百张 3600 万像素的照片时。最近写了一个 ​&lt;code&gt;align_all_photo.py&lt;/code&gt;​，目标很明确：&lt;strong&gt;以一张参考图为基准，自动对齐所有照片，计算共同有效区域，统一裁切并保持原图宽高比&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;这篇文章把脚本里的技术原理拆开讲清楚，包括为什么这么设计、关键公式、性能数据和踩过的坑。&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2&gt;一、问题定义&lt;/h2&gt;
+&lt;p&gt;输入：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;一组延时照片，文件名连续，例如 ​&lt;code&gt;810_3172_LR.jpg&lt;/code&gt;​ 到 ​&lt;code&gt;810_3643_LR.jpg&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;其中若干张（比如前 30 张）因为风吹、脚架轻微震动而抖动；&lt;/li&gt;
+&lt;li&gt;其余照片稳定。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;期望输出：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;所有照片对齐到同一个参考坐标系；&lt;/li&gt;
+&lt;li&gt;尺寸、构图完全一致；&lt;/li&gt;
+&lt;li&gt;没有黑边；&lt;/li&gt;
+&lt;li&gt;保持原始宽高比（16:9）；&lt;/li&gt;
+&lt;li&gt;尽量保留原始画质。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;约束：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;照片数量大（467 张），单张 7360×4140；&lt;/li&gt;
+&lt;li&gt;机器性能一般（i7-10710U，6 核 12 线程，基频 1.1GHz）；&lt;/li&gt;
+&lt;li&gt;路径含中文，OpenCV 默认不支持。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这些约束决定了脚本的核心设计：&lt;strong&gt;在缩小图上估计变换，在原始分辨率上应用变换&lt;/strong&gt;。&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2&gt;二、整体流程&lt;/h2&gt;
+&lt;p&gt;脚本分两个阶段：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;阶段 1：估计变换
+  参考图 → 缩小灰度图（ref_small）
+  每张图 → 缩小灰度图 → ECC 对齐 → warp_small → 放大 → warp_full
+
+阶段 2：应用变换 + 裁切
+  所有 warp_full → 角点逆变换 → 共同有效区域 → 宽高比拟合 → 裁切框
+  每张图 → 读原图 → warpAffine → 裁切 → 保存
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;关键点：&lt;strong&gt;对齐估计和变换应用是解耦的&lt;/strong&gt;。估计阶段只处理小图，应用阶段才读全分辨率原图。这样既快又准。&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2&gt;三、核心技术点&lt;/h2&gt;
+&lt;h3&gt;3.1 ECC 图像对齐&lt;/h3&gt;
+&lt;p&gt;脚本用 OpenCV 的 ​&lt;code&gt;cv2.findTransformECC&lt;/code&gt;。ECC 全称 Enhanced Correlation Coefficient，通过最大化两图之间的增强相关系数来估计全局变换。&lt;/p&gt;
+&lt;p&gt;为什么选 ECC 而不是特征点匹配（SIFT/ORB）？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;对光照变化鲁棒&lt;/strong&gt;：日出场景亮度剧烈变化，特征点匹配容易失效，ECC 基于像素强度相关性，更稳。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;适合小位移&lt;/strong&gt;：延时抖动通常只有几十像素，ECC 在这种场景下精度高。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;不需要特征&lt;/strong&gt;：日出画面可能云层平滑、纹理少，特征点可能不够，ECC 不依赖特征。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;支持四种运动模型：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;模型&lt;/th&gt;
+&lt;th&gt;自由度&lt;/th&gt;
+&lt;th&gt;适用场景&lt;/th&gt;
+&lt;th&gt;速度&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;translation&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;2&lt;/td&gt;
+&lt;td&gt;只有平移&lt;/td&gt;
+&lt;td&gt;最快&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;euclidean&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;平移 + 旋转&lt;/td&gt;
+&lt;td&gt;快&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;affine&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;6&lt;/td&gt;
+&lt;td&gt;平移 + 旋转 + 缩放 + 剪切&lt;/td&gt;
+&lt;td&gt;中&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;homography&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;8&lt;/td&gt;
+&lt;td&gt;透视变换&lt;/td&gt;
+&lt;td&gt;慢&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;默认用 ​&lt;code&gt;euclidean&lt;/code&gt;​。如果抖动主要是手持轻微偏移，​&lt;code&gt;translation&lt;/code&gt; 更快更稳。&lt;/p&gt;
+&lt;p&gt;ECC 的调用：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+            max_iters, eps)
+_, warp = cv2.findTransformECC(
+    ref_gray, img_gray, warp,
+    MOTION_MAP[motion_type], criteria, None, 5
+)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这里 ​&lt;code&gt;warp&lt;/code&gt; 的初值是单位矩阵。ECC 会迭代优化它，直到收敛或达到最大迭代次数。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;重要细节&lt;/strong&gt;：ECC 返回的 ​&lt;code&gt;warp&lt;/code&gt;​ 把&lt;strong&gt;参考坐标映射到输入图坐标&lt;/strong&gt;。也就是说，如果你想知道输入图的某个像素在参考坐标系里的位置，需要用 ​&lt;code&gt;warp&lt;/code&gt; 的逆变换。这一点在计算裁切框时至关重要。&lt;/p&gt;
+&lt;h3&gt;3.2 缩小估计，放大应用&lt;/h3&gt;
+&lt;p&gt;这是性能优化的核心。&lt;/p&gt;
+&lt;p&gt;D810 原图 7360×4140，约 3000 万像素。直接在全分辨率上跑 ECC，每次迭代都要做 warp 和梯度计算，单张要几十秒。467 张根本跑不完。&lt;/p&gt;
+&lt;p&gt;解决方案：&lt;strong&gt;在缩小图上估计变换，然后把变换矩阵放大回原始分辨率&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;具体做法：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;把参考图和目标图都缩到最长边 1000px 的灰度图；&lt;/li&gt;
+&lt;li&gt;在缩小图上跑 ECC，得到 ​&lt;code&gt;warp_small&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;用缩放公式把 ​&lt;code&gt;warp_small&lt;/code&gt;​ 转成全分辨率的 ​&lt;code&gt;warp_full&lt;/code&gt;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;缩放公式推导：&lt;/p&gt;
+&lt;p&gt;设 ​&lt;code&gt;x_small = scale * x_full&lt;/code&gt;​，其中 ​&lt;code&gt;scale = 1000 / 7360 ≈ 0.1359&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;如果 ​&lt;code&gt;warp_small&lt;/code&gt; 把参考坐标映射到输入坐标，那么：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;x_input_small = M_small · x_ref_small
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;代入缩放关系：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;scale · x_input_full = M_small · scale · x_ref_full
+x_input_full = (1/scale) · M_small · scale · x_ref_full
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;所以：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;M_full = S⁻¹ · M_small · S
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;其中 ​&lt;code&gt;S = diag(scale, scale, 1)&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;代码实现：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;def rescale_warp(warp, motion_type, scale):
+    S = np.diag([scale, scale, 1.0]).astype(np.float32)
+    S_inv = np.diag([1.0 / scale, 1.0 / scale, 1.0]).astype(np.float32)
+    if motion_type == &apos;homography&apos;:
+        return (S_inv @ warp @ S).astype(np.float32)
+    M3 = np.vstack([warp, [0, 0, 1]]).astype(np.float32)
+    M_full = S_inv @ M3 @ S
+    return M_full[:2, :].astype(np.float32)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;为什么这样精度够？&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;ECC 估计的是全局变换，这个变换在缩小和放大后是数学等价的；&lt;/li&gt;
+&lt;li&gt;抖动通常只有几十像素，在 1000px 图上相当于几个像素，ECC 能精确到亚像素级；&lt;/li&gt;
+&lt;li&gt;放大回原分辨率后，误差被同比例放大，但仍在 1–2 像素以内，肉眼不可见。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;效果：单张 ECC 估计从几十秒降到 1 秒以内，速度提升约 30 倍。&lt;/p&gt;
+&lt;h3&gt;3.3 共同有效区域裁切&lt;/h3&gt;
+&lt;p&gt;对齐之后，每张图在参考坐标系里的位置不同。如果把所有图都按原尺寸输出，边缘会出现黑边，或者尺寸不一致。&lt;/p&gt;
+&lt;p&gt;需要找一个&lt;strong&gt;所有图都覆盖的区域&lt;/strong&gt;来裁切。&lt;/p&gt;
+&lt;p&gt;做法：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;把每张图的四个角用 ​&lt;code&gt;warp&lt;/code&gt;​ 的&lt;strong&gt;逆变换&lt;/strong&gt;投影回参考坐标系；&lt;/li&gt;
+&lt;li&gt;得到每张图在参考坐标系中的覆盖范围（一个四边形）；&lt;/li&gt;
+&lt;li&gt;取所有四边形的交集。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;代码：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;def corners_in_ref_frame(w, h, warp, motion_type):
+    pts = np.array([[[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]]],
+                   dtype=np.float32)
+    if motion_type == &apos;homography&apos;:
+        inv = np.linalg.inv(warp)
+        return cv2.perspectiveTransform(pts, inv)[0]
+    M = np.vstack([warp, [0, 0, 1]]).astype(np.float64)
+    inv = np.linalg.inv(M)[:2, :].astype(np.float32)
+    return cv2.transform(pts, inv)[0]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;为什么用逆变换？&lt;/p&gt;
+&lt;p&gt;因为 ​&lt;code&gt;warp&lt;/code&gt; 把参考坐标映射到输入图坐标。我们想知道输入图的角点在参考坐标系里的位置，所以要用逆变换。&lt;/p&gt;
+&lt;p&gt;然后取交集：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;x0 = max(每张图的最小 x)
+x1 = min(每张图的最大 x)
+y0 = max(每张图的最小 y)
+y1 = min(每张图的最大 y)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这个矩形就是所有图共同覆盖的区域。&lt;/p&gt;
+&lt;p&gt;再加一个 ​&lt;code&gt;margin&lt;/code&gt; 内缩几像素，消除边界细黑线（因为 warp 插值可能在边缘产生 1–2 像素的黑色）。&lt;/p&gt;
+&lt;h3&gt;3.4 保持宽高比&lt;/h3&gt;
+&lt;p&gt;直接按交集裁，宽高比可能被破坏。比如原图 16:9，但交集可能接近正方形。&lt;/p&gt;
+&lt;p&gt;解决方案：在交集内部拟合一个目标宽高比的最大矩形。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;bw = x1 - x0
+bh = y1 - y0
+
+if bw / bh &amp;gt; aspect_ratio:
+    # 交集比目标更宽，按高度限制
+    new_h = bh
+    new_w = int(round(bh * aspect_ratio))
+else:
+    # 交集比目标更高，按宽度限制
+    new_w = bw
+    new_h = int(round(bw / aspect_ratio))
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;然后在交集内居中对齐（或靠上、靠下、靠左、靠右）：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;nx0 = x0 + (bw - new_w) // 2
+ny0 = y0 + (bh - new_h) // 2
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这样输出尺寸就符合目标宽高比，同时尽可能保留画面内容。&lt;/p&gt;
+&lt;h3&gt;3.5 多进程与性能优化&lt;/h3&gt;
+&lt;p&gt;脚本用了五个优化手段：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;1. 参考图通过 initializer 注入&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;ProcessPoolExecutor&lt;/code&gt;​ 的 ​&lt;code&gt;initializer&lt;/code&gt; 在每个子进程启动时执行一次，把缩小后的参考图注入全局变量。这样每个任务不需要重复传递参考图（约 1.4MB），避免了 467 次序列化。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;def _init_estimate_worker(ref_small, motion_type, ref_path_str):
+    global _REF_SMALL, _MOTION_TYPE, _REF_PATH_STR
+    _REF_SMALL = ref_small
+    _MOTION_TYPE = motion_type
+    _REF_PATH_STR = ref_path_str
+    cv2.setNumThreads(1)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;2. 关闭 OpenCV 内部多线程&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;每个 worker 里 ​&lt;code&gt;cv2.setNumThreads(1)&lt;/code&gt;。因为我们已经用多进程并行，如果 OpenCV 再开多线程，会出现 6 进程 × 12 线程 = 72 线程的过度订阅，反而变慢。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;3. 解码优化&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;对齐阶段用 ​&lt;code&gt;cv2.IMREAD_REDUCED_GRAYSCALE_4&lt;/code&gt;，让 JPEG 解码器直接输出 1/4 尺寸的灰度图，跳过全分辨率解码。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;if max_dim &amp;lt;= 1200:
+    flag = cv2.IMREAD_REDUCED_GRAYSCALE_4
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这比“先全解码再 resize”快得多。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;4. 参考图跳过 ECC&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;参考图对自己是单位矩阵，直接返回，省一次 ECC。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;5. 参数默认值更激进&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;--max-dim 1000&lt;/code&gt;​、​&lt;code&gt;--iters 30&lt;/code&gt;。ECC 通常 10–20 次就收敛，30 是保守值。&lt;/p&gt;
+&lt;p&gt;实测速度（i7-10710U，467 张 7360×4140）：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;阶段&lt;/th&gt;
+&lt;th&gt;旧版&lt;/th&gt;
+&lt;th&gt;优化后&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;阶段 1&lt;/td&gt;
+&lt;td&gt;极慢（可能卡死）&lt;/td&gt;
+&lt;td&gt;22 秒&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;阶段 2&lt;/td&gt;
+&lt;td&gt;5–10 分钟&lt;/td&gt;
+&lt;td&gt;3–5 分钟&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;阶段 1 从“卡死”降到 22 秒，主要靠缩小估计和并行。&lt;/p&gt;
+&lt;h3&gt;3.6 中文路径兼容&lt;/h3&gt;
+&lt;p&gt;Windows 下 OpenCV 的 ​&lt;code&gt;imread&lt;/code&gt;​ 不支持中文路径。解决方案是用 ​&lt;code&gt;np.fromfile&lt;/code&gt;​ 读字节，再 ​&lt;code&gt;cv2.imdecode&lt;/code&gt; 解码：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;def imread_unicode(path, flags=cv2.IMREAD_COLOR):
+    data = np.fromfile(str(path), dtype=np.uint8)
+    return cv2.imdecode(data, flags)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;写入时反过来：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;def imwrite_unicode(path, img, params=None):
+    ok, buf = cv2.imencode(ext, img, params or [])
+    buf.tofile(str(path))
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这样就能处理含中文的路径。&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2&gt;四、完整流程回顾&lt;/h2&gt;
+&lt;pre&gt;&lt;code&gt;1. 读取参考图，转灰度，缩小到 max_dim
+2. 列出输入目录所有图片
+3. 并行阶段 1：
+   - 每张图解码到缩小灰度图
+   - ECC 估计 warp_small
+   - rescale_warp 放大到 warp_full
+4. 计算裁切框：
+   - 每张图角点逆变换 → 参考坐标系覆盖范围
+   - 取交集 → 共同有效区域
+   - 拟合目标宽高比 → 最终裁切框
+5. 并行阶段 2：
+   - 读全分辨率原图
+   - warpAffine 应用变换
+   - 按裁切框裁剪
+   - 保存
+&lt;/code&gt;&lt;/pre&gt;
+&lt;hr /&gt;
+&lt;h2&gt;五、踩过的坑&lt;/h2&gt;
+&lt;h3&gt;5.1 h/w 顺序传反&lt;/h3&gt;
+&lt;p&gt;在计算裁切框时，调用 ​&lt;code&gt;corners_in_ref_frame(w, h, warp, ...)&lt;/code&gt;​ 时把 ​&lt;code&gt;h&lt;/code&gt;​ 和 ​&lt;code&gt;w&lt;/code&gt; 传反了：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;# 错误
+all_corners = [corners_in_ref_frame(h, w, warp, args.motion)
+               for warp, (h, w) in results.values()]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;函数签名是 ​&lt;code&gt;corners_in_ref_frame(w, h, ...)&lt;/code&gt;​，所以应该传 ​&lt;code&gt;w, h&lt;/code&gt;​。传反后，角点被定义在 ​&lt;code&gt;(0,0) → (4139,7359)&lt;/code&gt;​ 的坐标系里，但 ​&lt;code&gt;warp&lt;/code&gt; 是在真实坐标系（7360×4140）下估计的，结果裁切框跑到画面外，裁掉了近一半画面。&lt;/p&gt;
+&lt;p&gt;这个 bug 不报错，只能靠输出尺寸判断。输出 ​&lt;code&gt;3992×4113&lt;/code&gt; 接近正方形，就是症状。&lt;/p&gt;
+&lt;h3&gt;5.2 全分辨率 ECC 太慢&lt;/h3&gt;
+&lt;p&gt;最初版本直接在全分辨率上跑 ECC，单张要几十秒，467 张根本跑不完。必须缩小估计。&lt;/p&gt;
+&lt;h3&gt;5.3 宽高比约束位置&lt;/h3&gt;
+&lt;p&gt;必须在共同有效区域内拟合宽高比，不能先裁再缩，否则会变形或裁切过多。&lt;/p&gt;
+&lt;h3&gt;5.4 OpenCV 多线程过度订阅&lt;/h3&gt;
+&lt;p&gt;多进程 + OpenCV 内部多线程会导致线程数爆炸，反而变慢。必须在每个 worker 里 ​&lt;code&gt;cv2.setNumThreads(1)&lt;/code&gt;。&lt;/p&gt;
+&lt;h3&gt;5.5 中文路径&lt;/h3&gt;
+&lt;p&gt;Windows 下 OpenCV 不支持中文路径，必须用 ​&lt;code&gt;np.fromfile&lt;/code&gt;​ + ​&lt;code&gt;cv2.imdecode&lt;/code&gt;。&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2&gt;六、总结&lt;/h2&gt;
+&lt;p&gt;这个脚本的核心设计可以概括为：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;缩小估计，放大应用&lt;/strong&gt;：解决全分辨率 ECC 太慢的问题。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;角点逆变换 + 交集&lt;/strong&gt;：解决共同有效区域计算问题。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;宽高比拟合&lt;/strong&gt;：解决裁切后比例破坏问题。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;多进程 + initializer + 关闭内部多线程&lt;/strong&gt;：解决性能问题。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Unicode 路径兼容&lt;/strong&gt;：解决中文路径问题。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;最终效果：467 张 7360×4140 的照片，阶段 1 约 22 秒，阶段 2 几分钟，输出保持 16:9，黑边消除，抖动平滑。&lt;/p&gt;
+&lt;p&gt;附所有代码：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#!/usr/bin/env python3
+r&quot;&quot;&quot;
+timelapse_align.py — 延时摄影照片对齐 + 自动裁切（保持宽高比版）
+
+特性：
+  - 支持中文/Unicode 路径
+  - 对齐估计在缩小图上做，速度快
+  - 支持指定输出宽高比（auto / 16:9 / 4:3 / 数字）
+  - 多进程并行，参考图通过 initializer 注入，避免重复序列化
+  - 裁切框自动内缩，消除边界细黑线
+
+依赖：
+  pip install opencv-python numpy
+&quot;&quot;&quot;
+
+import argparse
+import sys
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+SUPPORTED_EXT = {&apos;.jpg&apos;, &apos;.jpeg&apos;, &apos;.png&apos;, &apos;.tif&apos;, &apos;.tiff&apos;, &apos;.bmp&apos;}
+
+MOTION_MAP = {
+    &apos;translation&apos;: cv2.MOTION_TRANSLATION,
+    &apos;euclidean&apos;:   cv2.MOTION_EUCLIDEAN,
+    &apos;affine&apos;:      cv2.MOTION_AFFINE,
+    &apos;homography&apos;:  cv2.MOTION_HOMOGRAPHY,
+}
+
+_REF_SMALL = None
+_MOTION_TYPE = None
+_REF_PATH_STR = None
+
+
+# ---------------------------------------------------------------- 路径兼容
+
+def imread_unicode(path, flags=cv2.IMREAD_COLOR):
+    try:
+        data = np.fromfile(str(path), dtype=np.uint8)
+        if data.size == 0:
+            return None
+        return cv2.imdecode(data, flags)
+    except Exception:
+        return None
+
+
+def imwrite_unicode(path, img, params=None):
+    ext = Path(path).suffix.lower()
+    if ext in (&apos;.jpg&apos;, &apos;.jpeg&apos;):
+        ext = &apos;.jpg&apos;
+    elif ext in (&apos;.tif&apos;, &apos;.tiff&apos;):
+        ext = &apos;.tiff&apos;
+    else:
+        ext = &apos;.png&apos;
+    try:
+        ok, buf = cv2.imencode(ext, img, params or [])
+        if not ok:
+            return False
+        buf.tofile(str(path))
+        return True
+    except Exception:
+        return False
+
+
+def imread_reduced_gray(path, max_dim):
+    try:
+        data = np.fromfile(str(path), dtype=np.uint8)
+    except Exception:
+        return None
+    if data.size == 0:
+        return None
+
+    if max_dim &amp;lt;= 600:
+        flag = cv2.IMREAD_REDUCED_GRAYSCALE_8
+    elif max_dim &amp;lt;= 1200:
+        flag = cv2.IMREAD_REDUCED_GRAYSCALE_4
+    elif max_dim &amp;lt;= 2400:
+        flag = cv2.IMREAD_REDUCED_GRAYSCALE_2
+    else:
+        flag = cv2.IMREAD_GRAYSCALE
+
+    gray = cv2.imdecode(data, flag)
+    if gray is None:
+        gray = cv2.imdecode(data, cv2.IMREAD_GRAYSCALE)
+    return gray
+
+
+# ---------------------------------------------------------------- 基础工具
+
+def list_images(directory: Path):
+    return [p for p in sorted(directory.iterdir())
+            if p.is_file() and p.suffix.lower() in SUPPORTED_EXT]
+
+
+def downsample_gray(gray, max_dim):
+    h, w = gray.shape
+    scale = max_dim / max(h, w)
+    if scale &amp;gt;= 1.0:
+        return gray, 1.0
+    new_w = int(round(w * scale))
+    new_h = int(round(h * scale))
+    return cv2.resize(gray, (new_w, new_h), interpolation=cv2.INTER_AREA), scale
+
+
+def estimate_transform(ref_gray, img_gray, motion_type,
+                       max_iters=30, eps=1e-4):
+    if motion_type == &apos;homography&apos;:
+        warp = np.eye(3, 3, dtype=np.float32)
+    else:
+        warp = np.eye(2, 3, dtype=np.float32)
+    criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                max_iters, eps)
+    try:
+        _, warp = cv2.findTransformECC(
+            ref_gray, img_gray, warp,
+            MOTION_MAP[motion_type], criteria, None, 5
+        )
+    except cv2.error:
+        return None
+    return warp
+
+
+def rescale_warp(warp, motion_type, scale):
+    S = np.diag([scale, scale, 1.0]).astype(np.float32)
+    S_inv = np.diag([1.0 / scale, 1.0 / scale, 1.0]).astype(np.float32)
+    if motion_type == &apos;homography&apos;:
+        return (S_inv @ warp @ S).astype(np.float32)
+    M3 = np.vstack([warp, [0, 0, 1]]).astype(np.float32)
+    M_full = S_inv @ M3 @ S
+    return M_full[:2, :].astype(np.float32)
+
+
+def corners_in_ref_frame(w, h, warp, motion_type):
+    pts = np.array([[[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]]],
+                   dtype=np.float32)
+    if motion_type == &apos;homography&apos;:
+        inv = np.linalg.inv(warp)
+        return cv2.perspectiveTransform(pts, inv)[0]
+    M = np.vstack([warp, [0, 0, 1]]).astype(np.float64)
+    inv = np.linalg.inv(M)[:2, :].astype(np.float32)
+    return cv2.transform(pts, inv)[0]
+
+
+def parse_aspect(s, ref_w, ref_h):
+    &quot;&quot;&quot;支持 auto / 16:9 / 4:3 / 数字。&quot;&quot;&quot;
+    if s is None or s == &apos;auto&apos;:
+        return ref_w / ref_h
+    if &apos;:&apos; in s:
+        a, b = s.split(&apos;:&apos;)
+        return float(a) / float(b)
+    return float(s)
+
+
+def compute_crop_box(all_corners, margin=0, aspect_ratio=None, align=&apos;center&apos;):
+    &quot;&quot;&quot;计算共同裁切框，可选保持指定宽高比。&quot;&quot;&quot;
+    x0 = int(np.ceil(max(c[:, 0].min() for c in all_corners))) + margin
+    y0 = int(np.ceil(max(c[:, 1].min() for c in all_corners))) + margin
+    x1 = int(np.floor(min(c[:, 0].max() for c in all_corners))) - margin
+    y1 = int(np.floor(min(c[:, 1].max() for c in all_corners))) - margin
+    if x1 &amp;lt;= x0 or y1 &amp;lt;= y0:
+        raise RuntimeError(&quot;所有图像没有共同的有效区域，无法裁切&quot;)
+
+    if aspect_ratio is None:
+        return x0, y0, x1, y1
+
+    bw = x1 - x0
+    bh = y1 - y0
+
+    if bw / bh &amp;gt; aspect_ratio:
+        new_h = bh
+        new_w = int(round(bh * aspect_ratio))
+    else:
+        new_w = bw
+        new_h = int(round(bw / aspect_ratio))
+
+    if align == &apos;center&apos;:
+        nx0 = x0 + (bw - new_w) // 2
+        ny0 = y0 + (bh - new_h) // 2
+    elif align == &apos;top&apos;:
+        nx0 = x0 + (bw - new_w) // 2
+        ny0 = y0
+    elif align == &apos;bottom&apos;:
+        nx0 = x0 + (bw - new_w) // 2
+        ny0 = y1 - new_h
+    elif align == &apos;left&apos;:
+        nx0 = x0
+        ny0 = y0 + (bh - new_h) // 2
+    elif align == &apos;right&apos;:
+        nx0 = x1 - new_w
+        ny0 = y0 + (bh - new_h) // 2
+    else:
+        nx0 = x0 + (bw - new_w) // 2
+        ny0 = y0 + (bh - new_h) // 2
+
+    return nx0, ny0, nx0 + new_w, ny0 + new_h
+
+
+# ---------------------------------------------------------------- 多进程 worker
+
+def _init_estimate_worker(ref_small, motion_type, ref_path_str):
+    global _REF_SMALL, _MOTION_TYPE, _REF_PATH_STR
+    _REF_SMALL = ref_small
+    _MOTION_TYPE = motion_type
+    _REF_PATH_STR = ref_path_str
+    cv2.setNumThreads(1)
+
+
+def _init_apply_worker():
+    cv2.setNumThreads(1)
+
+
+def worker_estimate(task):
+    path_str, max_dim, max_iters, full_w, full_h = task
+
+    if path_str == _REF_PATH_STR:
+        if _MOTION_TYPE == &apos;homography&apos;:
+            warp = np.eye(3, 3, dtype=np.float32)
+        else:
+            warp = np.eye(2, 3, dtype=np.float32)
+        return path_str, warp, (full_h, full_w)
+
+    gray = imread_reduced_gray(path_str, max_dim)
+    if gray is None:
+        return path_str, None, None
+
+    if gray.shape != _REF_SMALL.shape:
+        gray = cv2.resize(gray,
+                          (_REF_SMALL.shape[1], _REF_SMALL.shape[0]),
+                          interpolation=cv2.INTER_AREA)
+
+    warp_small = estimate_transform(_REF_SMALL, gray, _MOTION_TYPE,
+                                    max_iters=max_iters)
+    if warp_small is None:
+        return path_str, None, (full_h, full_w)
+
+    scale = _REF_SMALL.shape[1] / float(full_w)
+    warp = rescale_warp(warp_small, _MOTION_TYPE, scale)
+    return path_str, warp, (full_h, full_w)
+
+
+def worker_apply(task):
+    path_str, out_str, warp, motion_type, crop_box, jpg_quality = task
+    img = imread_unicode(path_str, cv2.IMREAD_COLOR)
+    if img is None:
+        return path_str, False
+
+    h, w = img.shape[:2]
+    flags = cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP
+    if motion_type == &apos;homography&apos;:
+        aligned = cv2.warpPerspective(
+            img, warp, (w, h), flags=flags,
+            borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+    else:
+        aligned = cv2.warpAffine(
+            img, warp, (w, h), flags=flags,
+            borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+
+    x0, y0, x1, y1 = crop_box
+    cropped = aligned[y0:y1, x0:x1]
+
+    params = []
+    if out_str.lower().endswith((&apos;.jpg&apos;, &apos;.jpeg&apos;)):
+        params = [cv2.IMWRITE_JPEG_QUALITY, jpg_quality]
+    ok = imwrite_unicode(out_str, cropped, params)
+    return path_str, ok
+
+
+# ---------------------------------------------------------------- 主流程
+
+def main():
+    ap = argparse.ArgumentParser(
+        description=&quot;延时摄影照片对齐 + 自动裁切（保持宽高比版）&quot;)
+    ap.add_argument(&apos;--ref&apos;, required=True,
+                    help=&apos;参考图像路径，可为文件名或完整路径&apos;)
+    ap.add_argument(&apos;--input&apos;, required=True, help=&apos;输入图像目录&apos;)
+    ap.add_argument(&apos;--output&apos;, required=True, help=&apos;输出目录&apos;)
+    ap.add_argument(&apos;--motion&apos;, default=&apos;euclidean&apos;,
+                    choices=list(MOTION_MAP.keys()),
+                    help=&apos;运动模型，默认 euclidean；只平移用 translation 更快&apos;)
+    ap.add_argument(&apos;--workers&apos;, type=int, default=6,
+                    help=&apos;并行进程数，默认 6&apos;)
+    ap.add_argument(&apos;--quality&apos;, type=int, default=92,
+                    help=&apos;JPEG 输出质量，默认 92&apos;)
+    ap.add_argument(&apos;--max-dim&apos;, type=int, default=1000,
+                    help=&apos;对齐估计时缩小后的最长边，默认 1000&apos;)
+    ap.add_argument(&apos;--iters&apos;, type=int, default=30,
+                    help=&apos;ECC 最大迭代次数，默认 30&apos;)
+    ap.add_argument(&apos;--margin&apos;, type=int, default=6,
+                    help=&apos;裁切框额外内缩像素，默认 6&apos;)
+    ap.add_argument(&apos;--aspect&apos;, default=&apos;auto&apos;,
+                    help=&apos;输出宽高比：auto / 16:9 / 4:3 / 数字，默认 auto&apos;)
+    ap.add_argument(&apos;--crop-align&apos;, default=&apos;center&apos;,
+                    choices=[&apos;center&apos;, &apos;top&apos;, &apos;bottom&apos;, &apos;left&apos;, &apos;right&apos;],
+                    help=&apos;固定宽高比裁切框的对齐方式，默认 center&apos;)
+    args = ap.parse_args()
+
+    input_dir = Path(args.input)
+    output_dir = Path(args.output)
+
+    if not input_dir.is_dir():
+        print(f&quot;错误：输入目录不存在 {input_dir}&quot;, file=sys.stderr)
+        sys.exit(1)
+
+    ref_path = Path(args.ref)
+    if not ref_path.is_absolute():
+        if not ref_path.exists():
+            candidate = input_dir / ref_path
+            if candidate.exists():
+                ref_path = candidate
+    ref_path = ref_path.resolve()
+
+    ref_img = imread_unicode(ref_path, cv2.IMREAD_COLOR)
+    if ref_img is None:
+        print(f&quot;错误：无法读取参考图像 {ref_path}&quot;, file=sys.stderr)
+        sys.exit(1)
+    ref_gray = cv2.cvtColor(ref_img, cv2.COLOR_BGR2GRAY)
+    ref_h, ref_w = ref_gray.shape
+
+    ref_small, _ = downsample_gray(ref_gray, args.max_dim)
+    del ref_img, ref_gray
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    images = list_images(input_dir)
+    if not images:
+        print(f&quot;错误：输入目录里没有支持的图像：{input_dir}&quot;, file=sys.stderr)
+        sys.exit(1)
+
+    aspect_ratio = parse_aspect(args.aspect, ref_w, ref_h)
+
+    print(f&quot;输入目录：{input_dir}&quot;)
+    print(f&quot;输出目录：{output_dir}&quot;)
+    print(f&quot;参考图像：{ref_path}&quot;)
+    print(f&quot;找到 {len(images)} 张图像，参考图尺寸 {ref_w}x{ref_h}&quot;)
+    print(f&quot;对齐估计尺寸：{ref_small.shape[1]}x{ref_small.shape[0]}&quot;)
+    print(f&quot;运动模型：{args.motion}，并行进程：{args.workers}，&quot;
+          f&quot;裁切边距：{args.margin}px&quot;)
+    print(f&quot;目标宽高比：{aspect_ratio:.4f} ({args.aspect})，&quot;
+          f&quot;裁切对齐：{args.crop_align}&quot;)
+    print()
+
+    # ---------- 阶段 1 ----------
+    print(&quot;阶段 1/2：估计对齐变换 ...&quot;)
+    t0 = time.time()
+    tasks = [(str(p), args.max_dim, args.iters, ref_w, ref_h)
+             for p in images]
+    results = {}
+    skipped = []
+    total = len(tasks)
+    done = 0
+
+    with ProcessPoolExecutor(
+            max_workers=args.workers,
+            initializer=_init_estimate_worker,
+            initargs=(ref_small, args.motion, str(ref_path))) as ex:
+        futures = [ex.submit(worker_estimate, t) for t in tasks]
+        for fut in as_completed(futures):
+            path_str, warp, shape = fut.result()
+            done += 1
+            if warp is None:
+                skipped.append(path_str)
+            else:
+                results[path_str] = (warp, shape)
+            if done % 20 == 0 or done == total:
+                elapsed = time.time() - t0
+                rate = done / elapsed if elapsed &amp;gt; 0 else 0
+                print(f&quot;  [{done}/{total}] {rate:.1f} 张/秒，&quot;
+                      f&quot;用时 {elapsed:.1f}s&quot;, flush=True)
+
+    if skipped:
+        print(f&quot;\n[警告] {len(skipped)} 张未对齐，已跳过：&quot;)
+        for s in skipped[:5]:
+            print(f&quot;  - {s}&quot;)
+        if len(skipped) &amp;gt; 5:
+            print(f&quot;  ... 以及另外 {len(skipped) - 5} 张&quot;)
+
+    if not results:
+        print(&quot;错误：没有任何图像对齐成功&quot;, file=sys.stderr)
+        sys.exit(1)
+
+    # ---------- 计算统一裁切框 ----------
+    all_corners = [corners_in_ref_frame(w, h, warp, args.motion)
+               for warp, (h, w) in results.values()]
+    x0, y0, x1, y1 = compute_crop_box(
+        all_corners, margin=args.margin,
+        aspect_ratio=aspect_ratio, align=args.crop_align)
+    print(f&quot;\n统一裁切区域：({x0}, {y0}) → ({x1}, {y1})，&quot;
+          f&quot;输出尺寸 {x1 - x0}x{y1 - y0} &quot;
+          f&quot;(比例 {(x1 - x0) / (y1 - y0):.4f})&quot;)
+
+    # ---------- 阶段 2 ----------
+    print(&quot;\n阶段 2/2：应用变换并裁切 ...&quot;)
+    t0 = time.time()
+    apply_tasks = []
+    for path_str, (warp, _) in results.items():
+        p = Path(path_str)
+        out_path = output_dir / p.name
+        apply_tasks.append(
+            (path_str, str(out_path), warp, args.motion,
+             (x0, y0, x1, y1), args.quality))
+
+    ok, fail = 0, 0
+    done = 0
+    total2 = len(apply_tasks)
+    with ProcessPoolExecutor(
+            max_workers=args.workers,
+            initializer=_init_apply_worker) as ex:
+        futures = [ex.submit(worker_apply, t) for t in apply_tasks]
+        for fut in as_completed(futures):
+            _, success = fut.result()
+            ok += int(success)
+            fail += int(not success)
+            done += 1
+            if done % 20 == 0 or done == total2:
+                elapsed = time.time() - t0
+                rate = done / elapsed if elapsed &amp;gt; 0 else 0
+                print(f&quot;  [{done}/{total2}] {rate:.1f} 张/秒，&quot;
+                      f&quot;用时 {elapsed:.1f}s&quot;, flush=True)
+
+    print(f&quot;\n完成。成功 {ok} 张，失败 {fail} 张，跳过 {len(skipped)} 张。&quot;)
+    print(f&quot;输出目录：{output_dir}&quot;)
+
+
+if __name__ == &apos;__main__&apos;:
+    main()
+&lt;/code&gt;&lt;/pre&gt;
+</content:encoded></item><item><title>DIAS：用于 DSA 序列中颅内动脉分割的数据集与基准</title><link>https://tangkai.me/posts/dias%E7%94%A8%E4%BA%8E-dsa-%E5%BA%8F%E5%88%97%E4%B8%AD%E9%A2%85%E5%86%85%E5%8A%A8%E8%84%89%E5%88%86%E5%89%B2%E7%9A%84%E6%95%B0%E6%8D%AE%E9%9B%86%E4%B8%8E%E5%9F%BA%E5%87%86/</link><guid isPermaLink="true">https://tangkai.me/posts/dias%E7%94%A8%E4%BA%8E-dsa-%E5%BA%8F%E5%88%97%E4%B8%AD%E9%A2%85%E5%86%85%E5%8A%A8%E8%84%89%E5%88%86%E5%89%B2%E7%9A%84%E6%95%B0%E6%8D%AE%E9%9B%86%E4%B8%8E%E5%9F%BA%E5%87%86/</guid><pubDate>Wed, 23 Sep 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;DIAS：用于 DSA 序列中颅内动脉分割的数据集与基准&lt;/h1&gt;
 &lt;p&gt;Wentao Liu&amp;lt;sup&amp;gt;1&amp;lt;/sup&amp;gt;, Tong Tian&amp;lt;sup&amp;gt;2&amp;lt;/sup&amp;gt;, Lemeng Wang&amp;lt;sup&amp;gt;1&amp;lt;/sup&amp;gt;, Weijin Xu&amp;lt;sup&amp;gt;1&amp;lt;/sup&amp;gt;, Lei Li&amp;lt;sup&amp;gt;3&amp;lt;/sup&amp;gt;, Haoyuan Li&amp;lt;sup&amp;gt;1&amp;lt;/sup&amp;gt;, Wenyi Zhao&amp;lt;sup&amp;gt;1&amp;lt;/sup&amp;gt;, Siyu Tian&amp;lt;sup&amp;gt;4&amp;lt;/sup&amp;gt;, Xipeng Pan&amp;lt;sup&amp;gt;5&amp;lt;/sup&amp;gt;, Yiming Deng&amp;lt;sup&amp;gt;3&amp;lt;/sup&amp;gt;, Feng Gao&amp;lt;sup&amp;gt;3,&amp;lt;/sup&amp;gt;​ &lt;em&gt;, Huihua Yang&lt;/em&gt;​*&amp;lt;sup&amp;gt;1,5,&amp;lt;/sup&amp;gt;* , Xin Wang&amp;lt;sup&amp;gt;6&amp;lt;/sup&amp;gt;, Ruisheng Su&amp;lt;sup&amp;gt;7,8&amp;lt;/sup&amp;gt;&lt;/p&gt;
 &lt;p&gt;&amp;lt;sup&amp;gt;1&amp;lt;/sup&amp;gt;北京邮电大学人工智能学院，中国北京&lt;br /&gt;
 &amp;lt;sup&amp;gt;2&amp;lt;/sup&amp;gt;首都医科大学附属北京天坛医院神经介入放射科，中国北京&lt;br /&gt;
