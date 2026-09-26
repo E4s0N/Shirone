@@ -10,6 +10,7 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
+- [用 Python + FFmpeg 写一个延时摄影合成脚本](https://tangkai.me/posts/用-python--ffmpeg-写一个延时摄影合成脚本/)
 - [基于OpenCV 的ECC​对延时摄影照片对齐与自动裁切](https://tangkai.me/posts/基于opencv-的ecc对延时摄影照片对齐与自动裁切/)
 - [DIAS：用于 DSA 序列中颅内动脉分割的数据集与基准](https://tangkai.me/posts/dias用于-dsa-序列中颅内动脉分割的数据集与基准/)
 - [基于数字减影血管造影的颈动脉狭窄自动检测与定量：CASMatching 策略](https://tangkai.me/posts/基于数字减影血管造影的颈动脉狭窄自动检测与定量casmatching-策略/)

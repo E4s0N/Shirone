@@ -1,4 +1,985 @@
-<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Tangkai&apos;s Blog</title><description>A blog about Tangkai</description><link>https://tangkai.me/</link><language>zh_CN</language><item><title>基于OpenCV 的ECC​对延时摄影照片对齐与自动裁切</title><link>https://tangkai.me/posts/%E5%9F%BA%E4%BA%8Eopencv-%E7%9A%84ecc%E5%AF%B9%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E7%85%A7%E7%89%87%E5%AF%B9%E9%BD%90%E4%B8%8E%E8%87%AA%E5%8A%A8%E8%A3%81%E5%88%87/</link><guid isPermaLink="true">https://tangkai.me/posts/%E5%9F%BA%E4%BA%8Eopencv-%E7%9A%84ecc%E5%AF%B9%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E7%85%A7%E7%89%87%E5%AF%B9%E9%BD%90%E4%B8%8E%E8%87%AA%E5%8A%A8%E8%A3%81%E5%88%87/</guid><pubDate>Fri, 25 Sep 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;基于OpenCV 的ECC对延时摄影照片对齐与自动裁切&lt;/h1&gt;
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Tangkai&apos;s Blog</title><description>A blog about Tangkai</description><link>https://tangkai.me/</link><language>zh_CN</language><item><title>用 Python + FFmpeg 写一个延时摄影合成脚本</title><link>https://tangkai.me/posts/%E7%94%A8-python--ffmpeg-%E5%86%99%E4%B8%80%E4%B8%AA%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E5%90%88%E6%88%90%E8%84%9A%E6%9C%AC/</link><guid isPermaLink="true">https://tangkai.me/posts/%E7%94%A8-python--ffmpeg-%E5%86%99%E4%B8%80%E4%B8%AA%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E5%90%88%E6%88%90%E8%84%9A%E6%9C%AC/</guid><pubDate>Sat, 26 Sep 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;用 Python + FFmpeg 写一个延时摄影合成脚本&lt;/h1&gt;
+&lt;blockquote&gt;
+&lt;p&gt;环境：Windows 10 / FFmpeg 9.0.1 (gyan.dev full build) / Python 3.12&lt;/p&gt;
+&lt;p&gt;硬件：i7-10710U（6 核 12 线程）/ 16 GB / MX350 + Intel UHD&lt;/p&gt;
+&lt;p&gt;素材：尼康 D810，7360×4912 JPG（3600 万像素）&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr /&gt;
+&lt;h2&gt;一、需求&lt;/h2&gt;
+&lt;h3&gt;1.1 场景&lt;/h3&gt;
+&lt;p&gt;拍延时摄影的人都会遇到同一个问题：&lt;strong&gt;拍的时候很爽，合的时候很烦&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;一次日出就是 700 多张 7360×4912 的 JPG，累计几个小时。拍完只是第一步，真正折磨人的是后期——总不能每次都在 Premiere 里拖几百张图，或者手敲 ffmpeg 命令。&lt;/p&gt;
+&lt;h3&gt;1.2 需求清单&lt;/h3&gt;
+&lt;p&gt;把脑子里模糊的想法整理成可以验收的条目：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;编号&lt;/th&gt;
+&lt;th&gt;需求&lt;/th&gt;
+&lt;th&gt;验收标准&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;R1&lt;/td&gt;
+&lt;td&gt;一条命令批量合成&lt;/td&gt;
+&lt;td&gt;给个文件夹就能出片，不用手工列文件&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;R2&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;输出要到处都能播&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;手机、电视、Windows 自带播放器、PC 播放器都能放&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;R3&lt;/td&gt;
+&lt;td&gt;4K 导出速度可接受&lt;/td&gt;
+&lt;td&gt;700 张不能等到天荒地老&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;R4&lt;/td&gt;
+&lt;td&gt;文件名可辨识&lt;/td&gt;
+&lt;td&gt;隔几天翻回去还能认出是哪次拍摄&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;R5&lt;/td&gt;
+&lt;td&gt;运行时有反馈&lt;/td&gt;
+&lt;td&gt;知道跑到哪了、还要多久，而不是干等&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;R6&lt;/td&gt;
+&lt;td&gt;参数可调&lt;/td&gt;
+&lt;td&gt;帧率、分辨率、画质、速度能按需开关&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;其中 &lt;strong&gt;R2 是硬需求&lt;/strong&gt;。视频做出来自己看是一回事，发给别人、拷到电视上放是另一回事——如果对方打不开，这个片子等于没做。&lt;/p&gt;
+&lt;p&gt;R5 看起来是&quot;锦上添花&quot;，但 700 张的渲染动辄几分钟，没有进度反馈的等待体验极差，实际上是刚需。&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2&gt;二、思路&lt;/h2&gt;
+&lt;h3&gt;2.1 为什么不直接用剪辑软件&lt;/h3&gt;
+&lt;p&gt;Premiere / DaVinci 都能做图片序列，但：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;几百张 3600 万像素图导入时间轴，内存和显存压力巨大；&lt;/li&gt;
+&lt;li&gt;参数调整靠鼠标点，批次处理不现实；&lt;/li&gt;
+&lt;li&gt;最关键的——&lt;strong&gt;它们不解决&quot;输出能不能播&quot;的问题&lt;/strong&gt;，导出参数照样得自己懂。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以正确的分工是：&lt;strong&gt;Python 负责编排（找图、拼清单、调参数、并行、报进度），FFmpeg 负责真正的解码与编码&lt;/strong&gt;。FFmpeg 才是这件事的核心工具，脚本只是把它包成一个顺手的命令行工具。&lt;/p&gt;
+&lt;h3&gt;2.2 为什么用 concat demuxer&lt;/h3&gt;
+&lt;p&gt;FFmpeg 合成图片序列有两条路：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方案 A：图片序列模式&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;ffmpeg -framerate 25 -i DSC_%04d.jpg ...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;要求文件名必须从 ​&lt;code&gt;1&lt;/code&gt;​ 开始、连续编号、固定位数。而相机的实际文件名是 ​&lt;code&gt;810_2161.JPG&lt;/code&gt;​ 这种，中间还可能缺号，&lt;strong&gt;不满足条件&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;方案 B：concat demuxer&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;ffmpeg -f concat -safe 0 -i list.txt ...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;list.txt&lt;/code&gt; 里逐个列出文件，还能给每张图单独指定显示时长：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;file &apos;810_2161.JPG&apos;
+duration 0.040000
+file &apos;810_2162.JPG&apos;
+duration 0.040000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;对文件名没有任何要求&lt;/strong&gt;，任意命名、任意顺序都能用。所以选 B。&lt;/p&gt;
+&lt;h3&gt;2.3 整体架构&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;扫描文件夹 (*.jpg / *.JPG)
+        │
+        ├─ 排序、去重
+        │
+        ├─ 探测源图尺寸 (ffprobe)  ──→ 算出精确输出尺寸
+        │
+        ├─ 生成 concat 清单（含 duration）
+        │
+        ├─ 单进程 ────→ ffmpeg ──────────────→ 输出 mp4
+        │
+        └─ 多进程 ────→ 切片 → N 个 ffmpeg 并行 → ffmpeg -c copy 拼接 → 输出 mp4
+                                 │
+                                 └─ 读 -progress 输出 → 汇总进度条
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;关键决策有两个：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;默认不按原图分辨率输出。&lt;/strong&gt;  R2 的成败直接由分辨率决定，所以默认收到一个兼容性安全的值，想要大尺寸显式指定。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;速度靠多进程而不是多线程。&lt;/strong&gt;  原因见原理 3.5，这个结论是实测出来的，和直觉相反。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3&gt;2.4 技术选型&lt;/h3&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;环节&lt;/th&gt;
+&lt;th&gt;选择&lt;/th&gt;
+&lt;th&gt;理由&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;语言&lt;/td&gt;
+&lt;td&gt;Python 3&lt;/td&gt;
+&lt;td&gt;编排逻辑清晰，标准库够用&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;合成&lt;/td&gt;
+&lt;td&gt;FFmpeg + concat demuxer&lt;/td&gt;
+&lt;td&gt;见 2.2&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;编码器&lt;/td&gt;
+&lt;td&gt;libx264&lt;/td&gt;
+&lt;td&gt;兼容性最好；硬件编码实测无价值（见 5.6）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;尺寸探测&lt;/td&gt;
+&lt;td&gt;ffprobe&lt;/td&gt;
+&lt;td&gt;随 FFmpeg 一起装，无需额外依赖&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;进度&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;-progress pipe:1&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;FFmpeg 官方的机器可读进度&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;并行&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;subprocess&lt;/code&gt; + 线程读管道&lt;/td&gt;
+&lt;td&gt;单进程解码是瓶颈，只能靠多进程（见 3.5）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;hr /&gt;
+&lt;h2&gt;三、原理&lt;/h2&gt;
+&lt;p&gt;要满足 R2 和 R3，必须先搞清楚四件事：&lt;strong&gt;这个视频格式为什么会在某些设备上打不开、为什么网络播放会失败、为什么颜色会不对、以及时间到底花在哪。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3&gt;3.1 concat demuxer 是怎么把图片变成视频的&lt;/h3&gt;
+&lt;p&gt;图片本身是&quot;静止帧&quot;，没有时间概念。concat demuxer 通过 ​&lt;code&gt;duration&lt;/code&gt;​ 指令给每张图&lt;strong&gt;赋予持续时长&lt;/strong&gt;，FFmpeg 再按这个时长推进 PTS（显示时间戳），于是静止帧就变成了时间轴上连续的画面。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;duration = 1.0 / fps          # 25fps → 每张 0.04 秒
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;所以&lt;strong&gt;帧率并不是直接写进编码器的，而是通过 duration 间接决定的&lt;/strong&gt;。这也解释了为什么不能同时用 ​&lt;code&gt;-framerate&lt;/code&gt;——那会和 duration 打架。&lt;/p&gt;
+&lt;h3&gt;3.2 H.264 Level 与宏块上限 —— 决定&quot;能不能播&quot;&lt;/h3&gt;
+&lt;p&gt;这是全文最重要的原理，直接决定 R2。&lt;/p&gt;
+&lt;p&gt;H.264 不是&quot;分辨率越高 Level 越高&quot;这么简单，它按&lt;strong&gt;宏块（Macroblock）&lt;/strong&gt; 算。一个宏块 16×16 像素，一帧的宏块数是：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;宏块数 = ceil(宽/16) × ceil(高/16)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;每个 Level 规定了 &lt;strong&gt;MaxFS（最大帧尺寸，单位宏块）&lt;/strong&gt; ：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Level&lt;/th&gt;
+&lt;th&gt;MaxFS（宏块）&lt;/th&gt;
+&lt;th&gt;换算像素上限&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;5.0&lt;/td&gt;
+&lt;td&gt;22,080&lt;/td&gt;
+&lt;td&gt;5,652,480&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;strong&gt;5.1&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;36,864&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;9,437,184&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;6.0 / 6.1 / 6.2&lt;/td&gt;
+&lt;td&gt;139,264&lt;/td&gt;
+&lt;td&gt;35,651,584&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;拿实际数字算一遍就明白了：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;7360×4912 → ceil(7360/16)=460, ceil(4912/16)=307
+          → 460 × 307 = 141,220 宏块
+          → 超过 6.0 的 139,264，只能标 Level 6.2
+
+3840×2562 → 240 × 161 = 38,640 宏块
+          → 超过 5.1 的 36,864，落到 Level 6.0
+
+3200×2136 → 200 × 134 = 26,800 宏块
+          → 在 5.1 的 36,864 之内，Level 5.1 ✓
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;为什么这决定&quot;能不能播&quot;？&lt;/strong&gt;  因为设备的 H.264 硬解能力普遍只做到 &lt;strong&gt;Level 5.1&lt;/strong&gt;（约 4K）。超过这个 Level，解码器会直接拒绝——不是&quot;放得卡&quot;，是&lt;strong&gt;根本不解码&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;而 PC 上的 VLC / PotPlayer 走&lt;strong&gt;软件解码&lt;/strong&gt;，任何 Level 都能处理。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;这就埋下了整个项目最大的坑：同一批文件，PC 上正常，手机上打不开。播放环境不同，结论不同，极容易被误判成&quot;文件随机损坏&quot;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3&gt;3.3 moov 原子与 faststart —— 决定&quot;能不能边下边播&quot;&lt;/h3&gt;
+&lt;p&gt;MP4 是&quot;盒子结构&quot;（box / atom）。其中两个最关键：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;​&lt;code&gt;mdat&lt;/code&gt;​&lt;/strong&gt;：真正的音视频数据&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;​&lt;code&gt;moov&lt;/code&gt;​&lt;/strong&gt;：元数据（时长、轨道、编码参数、每一帧的位置索引）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;FFmpeg 默认&lt;strong&gt;边编码边写&lt;/strong&gt; ​&lt;strong&gt;​&lt;code&gt;mdat&lt;/code&gt;​&lt;/strong&gt;​ &lt;strong&gt;，最后才回填&lt;/strong&gt; ​&lt;strong&gt;​&lt;code&gt;moov&lt;/code&gt;​&lt;/strong&gt;​。于是 ​&lt;code&gt;moov&lt;/code&gt; 落在文件末尾。&lt;/p&gt;
+&lt;p&gt;后果有两个：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;流式播放失败。&lt;/strong&gt;  播放器必须拿到 ​&lt;code&gt;moov&lt;/code&gt; 才知道怎么解码。放在末尾意味着必须把整个文件读完才能开始——网络盘、U 盘、手机上&quot;边下边播&quot;就会表现为打不开。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;中断即报废。&lt;/strong&gt;  如果渲染中途被 Ctrl+C，​&lt;code&gt;moov&lt;/code&gt;​ 根本没机会写入，得到一个&lt;strong&gt;结构不完整的 mp4，彻底不可播&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;code&gt;-movflags +faststart&lt;/code&gt;​ 让 FFmpeg 编码完后再做一次&quot;搬移&quot;，把 ​&lt;code&gt;moov&lt;/code&gt; 挪到文件开头。&lt;/p&gt;
+&lt;h3&gt;3.4 color range —— 决定&quot;颜色对不对&quot;&lt;/h3&gt;
+&lt;p&gt;数字视频的 YUV 取值有两种约定：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;limited range（tv）&lt;/strong&gt; ：Y 取值 16~235，标准的广播/视频范围&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;full range（pc）&lt;/strong&gt; ：Y 取值 0~255，JPEG 家族用的范围&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;JPEG 是 full range，所以相机产出的 JPG 是 ​&lt;code&gt;yuvj422p&lt;/code&gt;​（​&lt;code&gt;j&lt;/code&gt; 就是 full range 的标记）。&lt;/p&gt;
+&lt;p&gt;坑在于：​ &lt;strong&gt;​&lt;code&gt;-pix_fmt yuv420p&lt;/code&gt;​&lt;/strong&gt;​ &lt;strong&gt;只转换&quot;像素格式&quot;，不会改变 range 标记。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;也就是说，写了 ​&lt;code&gt;-pix_fmt yuv420p&lt;/code&gt;​，输出仍然是 full range——在容器里被标成 ​&lt;code&gt;yuvj420p&lt;/code&gt;。部分播放器拿到这种标记会渲染错误（偏色、发灰，个别硬解花屏）。&lt;/p&gt;
+&lt;p&gt;要真正完成 range 转换，必须&lt;strong&gt;让 swscale 参与&lt;/strong&gt;，在 scale 滤镜上显式指定：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;scale=...:in_range=auto:out_range=tv
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3&gt;3.5 编解码开销的分布 —— 决定&quot;快不快&quot;&lt;/h3&gt;
+&lt;p&gt;要满足 R3，得先知道时间花在哪。一次完整的图片序列编码包含三个阶段：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;JPEG 解码（7360×4912）  →  swscale 缩放  →  libx264 编码
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;其中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;libx264 编码&lt;/strong&gt;：默认就自动多线程，线程数约为 1.5× 物理核心数。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;swscale 缩放&lt;/strong&gt;：单滤镜内基本是串行的。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;JPEG 解码&lt;/strong&gt;：这是关键。&lt;strong&gt;FFmpeg 的 MJPEG 解码器实测是单线程的&lt;/strong&gt;——​&lt;code&gt;utime ≈ rtime&lt;/code&gt;​ 说明它只占用约 1 个核，​&lt;code&gt;-threads&lt;/code&gt; 对它完全无效。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;结论：&lt;strong&gt;图片序列的瓶颈是单线程的解码器，而不是编码器。&lt;/strong&gt;  所以&quot;让 ffmpeg 多线程&quot;这条路走不通，唯一的出路是&lt;strong&gt;把图片列表切片，同时跑多个 ffmpeg 进程&lt;/strong&gt;，把各自解码好的分片再用 ​&lt;code&gt;-c copy&lt;/code&gt; 无损拼接起来。&lt;/p&gt;
+&lt;hr /&gt;
+&lt;h2&gt;四、实现&lt;/h2&gt;
+&lt;h3&gt;4.1 骨架&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;img_list = sorted(set(img_dir.glob(&quot;*.jpg&quot;)) | set(img_dir.glob(&quot;*.JPG&quot;)))
+duration = 1.0 / args.fps
+
+with open(list_path, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+    for p in img_list:
+        f.write(f&quot;file &apos;{os.path.relpath(p, img_dir)}&apos;\n&quot;)
+        f.write(f&quot;duration {duration:.6f}\n&quot;)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;两个细节：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;用 ​&lt;code&gt;relpath&lt;/code&gt;​ 写相对路径，清单文件放在图片目录里、​&lt;code&gt;cwd&lt;/code&gt;​ 也设成图片目录。这样&lt;strong&gt;清单里不出现中文路径和反斜杠&lt;/strong&gt;，避开 concat demuxer 的转义坑。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;set()&lt;/code&gt;​ 去重：Windows 下 ​&lt;code&gt;*.jpg&lt;/code&gt;​ 的 glob 是大小写不敏感的，​&lt;code&gt;*.jpg&lt;/code&gt;​ 和 ​&lt;code&gt;*.JPG&lt;/code&gt; 会匹配到同一批文件，用 set 消掉。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;4.2 输出尺寸与滤镜&lt;/h3&gt;
+&lt;p&gt;不依赖 ffmpeg 的 ​&lt;code&gt;-2&lt;/code&gt;​ 自适应，而是&lt;strong&gt;自己用 ffprobe 读源尺寸、自己算&lt;/strong&gt;：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;def probe_size(path):
+    r = subprocess.run(
+        [&quot;ffprobe&quot;, &quot;-v&quot;, &quot;error&quot;, &quot;-select_streams&quot;, &quot;v&quot;,
+         &quot;-show_entries&quot;, &quot;stream=width,height&quot;, &quot;-of&quot;, &quot;csv=p=0&quot;, str(path)],
+        capture_output=True, text=True, check=True)
+    w, h = r.stdout.strip().split(&quot;,&quot;)[:2]
+    return int(w), int(h)
+
+
+out_w = even(min(target_w, sw))          # 不放大
+out_h = even(round(sh * out_w / sw))     # 按原比例，取偶数
+vf = f&quot;scale={out_w}:{out_h}:in_range=auto:out_range=tv,format=yuv420p&quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;这么做有两个好处：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;文件名里的分辨率一定和实际画面一致&lt;/strong&gt;（见 4.6）；&lt;/li&gt;
+&lt;li&gt;顺手把 range 转换做掉了（原理 3.4）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;code&gt;even()&lt;/code&gt; 保证宽高是偶数——libx264 的 yuv420p 需要偶数字面尺寸，否则直接报错。&lt;/p&gt;
+&lt;h3&gt;4.3 兼容性三件套&lt;/h3&gt;
+&lt;p&gt;针对原理 3.2 / 3.3 / 3.4 的三条对策，落在输出参数上：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;cmd += [
+    &quot;-c:v&quot;, &quot;libx264&quot;,
+    &quot;-preset&quot;, preset,
+    &quot;-crf&quot;, str(args.crf),
+    &quot;-pix_fmt&quot;, &quot;yuv420p&quot;,
+    &quot;-movflags&quot;, &quot;+faststart&quot;,     # 对策 3.3：moov 前置
+]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;加上 4.2 的 scale 滤镜（对策 3.4）和默认 1920 的宽度上限（对策 3.2），R2 才算真正满足。&lt;/p&gt;
+&lt;h3&gt;4.4 多进程分片&lt;/h3&gt;
+&lt;p&gt;对应原理 3.5。把图片按顺序切片，每片交给一个独立的 ffmpeg 进程：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;cpus = os.cpu_count() or 2
+jobs = args.jobs if args.jobs &amp;gt; 0 else max(1, cpus // 2)   # 默认按物理核心数估
+jobs = max(1, min(jobs, len(img_list)))
+enc_threads = max(1, cpus // jobs)                          # 防止线程暴涨抢核
+
+chunk = (len(img_list) + jobs - 1) // jobs
+chunks = [img_list[i:i + chunk] for i in range(0, len(img_list), chunk)]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;每个分片单独渲染成临时 mp4（&lt;strong&gt;不加 faststart&lt;/strong&gt;，省掉那次搬移），最后拼接：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;cmd = [&quot;ffmpeg&quot;, &quot;-f&quot;, &quot;concat&quot;, &quot;-safe&quot;, &quot;0&quot;, &quot;-i&quot;, segs_txt,
+       &quot;-c&quot;, &quot;copy&quot;, &quot;-movflags&quot;, &quot;+faststart&quot;, &quot;-y&quot;, out_path]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;-c copy&lt;/code&gt;​ 是&lt;strong&gt;流拷贝&lt;/strong&gt;，不解码不重编码，所以拼接几乎不花时间。&lt;/p&gt;
+&lt;p&gt;两个关键约束：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;分片必须按原顺序切、按原顺序拼&lt;/strong&gt;，否则画面顺序错乱；&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;所有分片编码参数必须完全一致&lt;/strong&gt;，否则 ​&lt;code&gt;-c copy&lt;/code&gt; 拼出来的东西时间基不统一。因为用的是同一套参数，天然满足。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;code&gt;cpus // 2&lt;/code&gt;​ 是因为 ​&lt;code&gt;os.cpu_count()&lt;/code&gt;​ 返回的是逻辑核心数，而解码本身吃不满超线程；​&lt;code&gt;enc_threads&lt;/code&gt; 则是反过来控制每个子进程别把线程开满，避免 N 个进程互相抢核。&lt;/p&gt;
+&lt;h3&gt;4.5 进度条&lt;/h3&gt;
+&lt;p&gt;FFmpeg 默认往 stderr 刷日志，既刷屏又程序化解析困难。正确做法是用官方的机器可读进度：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;ffmpeg -hide_banner -loglevel error -nostats -progress pipe:1 ...
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;-progress pipe:1&lt;/code&gt;​ 会每 0.5 秒往 stdout 打一行 ​&lt;code&gt;key=value&lt;/code&gt;​，我们只关心 ​&lt;code&gt;frame=N&lt;/code&gt;。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;def reader(i, proc):
+    for line in proc.stdout:
+        if line.startswith(&quot;frame=&quot;):
+            frames[i] = int(line.strip().split(&quot;=&quot;, 1)[1])   # 各进程独立累计
+            with lock:
+                draw_progress(sum(frames), total, start)     # 汇总成一条总进度
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;多进程时，为每个 ffmpeg 起一个读线程，各自维护自己的 ​&lt;code&gt;frame&lt;/code&gt;，加锁汇总。百分比和 ETA：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;百分比 = 已完成帧数 / 总帧数
+剩余   = 已用时间 × (总数 - 已完成) / 已完成
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;渲染时把 stderr 重定向到临时文件，&lt;strong&gt;只在失败时才打印&lt;/strong&gt;，成功路径下一条日志都看不到。&lt;/p&gt;
+&lt;h3&gt;4.6 自动命名&lt;/h3&gt;
+&lt;p&gt;延时摄影&lt;strong&gt;没有官方命名标准&lt;/strong&gt;，但视频/影视交付领域有个通行做法：&lt;strong&gt;ISO 日期打头 + 统一分隔符&lt;/strong&gt;，好处是文件名按字典序排 = 按时间排，且跨语言无歧义（不会纠结 ​&lt;code&gt;09-10&lt;/code&gt; 是 9 月 10 日还是 10 月 9 日）。&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;20260924_timelapse_3200x2136_h264.mp4
+└─日期─┘ └──类型──┘ └─分辨率┘ └编码器┘
+&lt;/code&gt;&lt;/pre&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;分辨率写真实像素&lt;/strong&gt;而不是 &quot;4K&quot;。因为 ​&lt;code&gt;-4k&lt;/code&gt; 模式输出的是 3200 宽（原理 3.2 的妥协），标成 4K 就是错的。写实际尺寸最诚实，这也是 4.2 里坚持自己算尺寸的原因。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;日期从文件夹名解析&lt;/strong&gt;（我的文件夹都是 ​&lt;code&gt;20260924-描述&lt;/code&gt; 这种），解析不到就用第一张图的修改时间兜底。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code&gt;def parse_date(text):
+    m = re.match(r&quot;(\d{4})[-_.]?(\d{2})[-_.]?(\d{2})&quot;, text)
+    return f&quot;{m.group(1)}{m.group(2)}{m.group(3)}&quot; if m else None
+&lt;/code&gt;&lt;/pre&gt;
+&lt;hr /&gt;
+&lt;h2&gt;五、排错&lt;/h2&gt;
+&lt;h3&gt;5.1 症状：&quot;有些视频能播，有些播不了&quot;&lt;/h3&gt;
+&lt;p&gt;这是启动整个优化过程的原始问题。把已生成的视频全部 ​&lt;code&gt;ffprobe&lt;/code&gt; 一遍：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;文件&lt;/th&gt;
+&lt;th&gt;分辨率&lt;/th&gt;
+&lt;th&gt;Level&lt;/th&gt;
+&lt;th&gt;结果&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;全尺寸输出&lt;/td&gt;
+&lt;td&gt;7360×4912&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;6.2&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;手机/电视打不开&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;手动缩过的那个&lt;/td&gt;
+&lt;td&gt;1920×1282&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;5.0&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;到处都能播&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;规律立刻显现：&lt;strong&gt;能播的都是低分辨率&lt;/strong&gt;。对照原理 3.2，元凶是 Level 超限——而且&quot;PC 能播、手机不能播&quot;正是软解 vs 硬解的差异，完美解释了&quot;随机性&quot;的假象。&lt;/p&gt;
+&lt;h3&gt;5.2 定位 moov 问题&lt;/h3&gt;
+&lt;p&gt;Level 之外，又检查了容器结构。不看不知道，所有输出文件的 ​&lt;code&gt;moov&lt;/code&gt;​ 都在末尾——直接读文件头几千字节，连 ASCII ​&lt;code&gt;moov&lt;/code&gt; 都找不到：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;timelapse.mp4   moov@-1  mdat@44     ← moov 不在前 2MB 里
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;对照原理 3.3，这就是&quot;网络播放失败 + 中断即报废&quot;的根因。加上 ​&lt;code&gt;-movflags +faststart&lt;/code&gt; 后：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;out.mp4   moov@36  mdat@995          ← moov 跑到文件开头
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3&gt;5.3 定位 color range 问题&lt;/h3&gt;
+&lt;p&gt;&lt;code&gt;-pix_fmt&lt;/code&gt;​ 明明写了 ​&lt;code&gt;yuv420p&lt;/code&gt;​，输出却是 ​&lt;code&gt;yuvj420p&lt;/code&gt;​。对照原理 3.4 才知道 ​&lt;code&gt;-pix_fmt&lt;/code&gt;​ 管不了 range。改用 ​&lt;code&gt;scale=...:out_range=tv&lt;/code&gt;​ 之后，​&lt;code&gt;ffprobe&lt;/code&gt;​ 确认变为 ​&lt;code&gt;yuv420p / color_range=tv&lt;/code&gt;。&lt;/p&gt;
+&lt;h3&gt;5.4 速度排查：多线程为什么没用&lt;/h3&gt;
+&lt;p&gt;R3 的第一反应是&quot;让 ffmpeg 多线程&quot;，实测结果反直觉。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;12 张 7360×4912 → 4K，25fps：&lt;/strong&gt;&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;配置&lt;/th&gt;
+&lt;th&gt;耗时&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-preset medium&lt;/code&gt;（原默认）&lt;/td&gt;
+&lt;td&gt;4.67s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-preset veryfast&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;3.66s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-preset ultrafast&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;3.36s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;medium&lt;/code&gt;​ + ​&lt;code&gt;-threads 12&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;4.72s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;​&lt;code&gt;-threads 12&lt;/code&gt;​&lt;/strong&gt;​ &lt;strong&gt;和默认毫无差别。&lt;/strong&gt;  于是把流程拆开，用 ​&lt;code&gt;-benchmark&lt;/code&gt; 单独测每个阶段：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;阶段&lt;/th&gt;
+&lt;th&gt;耗时&lt;/th&gt;
+&lt;th&gt;utime / rtime&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;只解码&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;2.72s&lt;/strong&gt;&lt;/td&gt;
+&lt;td&gt;2.703 / 2.724&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;解码 + 缩放 4K&lt;/td&gt;
+&lt;td&gt;2.89s&lt;/td&gt;
+&lt;td&gt;—&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;解码 + 缩放 1080p&lt;/td&gt;
+&lt;td&gt;2.88s&lt;/td&gt;
+&lt;td&gt;—&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;完整 4K 输出（medium）&lt;/td&gt;
+&lt;td&gt;4.67s&lt;/td&gt;
+&lt;td&gt;—&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;结论清晰：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;解码独占 2.72s，缩放+编码总共只有 0.17s&lt;/strong&gt;；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;utime ≈ rtime&lt;/code&gt;​ 证明 &lt;strong&gt;MJPEG 解码是单线程&lt;/strong&gt;；再试 ​&lt;code&gt;-threads 6&lt;/code&gt;​：​&lt;code&gt;utime=2.688 / rtime=2.725&lt;/code&gt;，纹丝不动。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;还有个附带发现：&lt;strong&gt;4K（2.99s）和 1080p（2.92s）几乎一样快&lt;/strong&gt;——因为大头是解码 3600 万像素的源图，跟输出多大无关。&lt;/p&gt;
+&lt;p&gt;既然单进程卡死，就上多进程（实现 4.4）。实测：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;6 进程 × 2 张，纯解码：&lt;strong&gt;2.72s → 0.894s&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;6 进程 × 2 张，完整编码：2.99s → 1.14s&lt;/li&gt;
+&lt;li&gt;端到端 24 张 4K：​ &lt;strong&gt;​&lt;code&gt;-j 1&lt;/code&gt;​&lt;/strong&gt;​ &lt;strong&gt;6.82s →&lt;/strong&gt;  ​ &lt;strong&gt;​&lt;code&gt;-j 6&lt;/code&gt;​&lt;/strong&gt;​ &lt;strong&gt;3.35s，约 2 倍&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;5.5 编码器参数（换 preset）和调整 scaler&lt;/h3&gt;
+&lt;p&gt;既然缩放只占 0.17s，顺手验证了一下缩小它的收益：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;scaler flags&lt;/th&gt;
+&lt;th&gt;耗时&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;默认 bicubic&lt;/td&gt;
+&lt;td&gt;3.44s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;bilinear&lt;/td&gt;
+&lt;td&gt;3.39s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;fast_bilinear&lt;/td&gt;
+&lt;td&gt;3.47s&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;全在噪声范围内&lt;/strong&gt;，没必要动。真正有效的只有换 preset——​&lt;code&gt;ultrafast&lt;/code&gt;​ 比 ​&lt;code&gt;medium&lt;/code&gt; 快约 28%。&lt;/p&gt;
+&lt;h3&gt;5.6 走不通的路：NVENC / QSV / GPU 解码&lt;/h3&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;方案&lt;/th&gt;
+&lt;th&gt;结果&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;h264_nvenc&lt;/code&gt;（MX350）&lt;/td&gt;
+&lt;td&gt;❌ ​&lt;code&gt;Cannot load cuMemAllocAsync&lt;/code&gt;，老驱动 + 该卡 NVENC 支持残缺&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;hevc_qsv&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;❌ ​&lt;code&gt;Error querying encoder params: unsupported&lt;/code&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;h264_qsv&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;✅ 可用，3.83s —— 但对照 5.4，&lt;strong&gt;编码阶段总共才 0.17s，加速编码解决不了瓶颈&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;mjpeg_qsv&lt;/code&gt;​ + ​&lt;code&gt;scale_qsv&lt;/code&gt;（核显解码/缩放）&lt;/td&gt;
+&lt;td&gt;❌ ​&lt;code&gt;Function not implemented&lt;/code&gt;，驱动太旧 + 7360 宽度超出 QSV 限制&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;结论：这台机器上硬件加速没有价值。&lt;/strong&gt;  瓶颈在 CPU 解码，不在编码，老老实实用 libx264。当然换成有正经独显的台式机，结论可能完全不同——所以这些是&quot;实测&quot;而非&quot;定论&quot;。&lt;/p&gt;
+&lt;h3&gt;5.7 4K 的等级陷阱&lt;/h3&gt;
+&lt;p&gt;做完上面所有优化，我想加个&quot;一键 4K&quot;，结果又踩了一次原理 3.2 的坑。&lt;/p&gt;
+&lt;p&gt;因为照片是 &lt;strong&gt;3:2&lt;/strong&gt;，宽度 3840 对应高度 2562：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;240 × 161 = 38,640 宏块  &amp;gt;  5.1 的上限 36,864
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;strong&gt;&quot;标准 4K 宽度&quot;3840 在 3:2 比例下刚好顶破 Level 5.1&lt;/strong&gt;，被判成 6.0，兼容性问题原地复活。实测各宽度：&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;输出宽度&lt;/th&gt;
+&lt;th&gt;实际尺寸&lt;/th&gt;
+&lt;th&gt;Level&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;3840&lt;/td&gt;
+&lt;td&gt;3840×2562&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;6.0&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;3760&lt;/td&gt;
+&lt;td&gt;3760×2508&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;6.0&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;3200&lt;/td&gt;
+&lt;td&gt;3200×2136&lt;/td&gt;
+&lt;td&gt;&lt;strong&gt;5.1&lt;/strong&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;2560&lt;/td&gt;
+&lt;td&gt;2560×1708&lt;/td&gt;
+&lt;td&gt;5.0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;1920&lt;/td&gt;
+&lt;td&gt;1920×1282&lt;/td&gt;
+&lt;td&gt;5.0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;最终取舍：​&lt;code&gt;-4k&lt;/code&gt;​ 模式用 &lt;strong&gt;3200 宽&lt;/strong&gt;，稳在 Level 5.1（3200×2136 观感已经接近 4K），再叠上 ​&lt;code&gt;ultrafast&lt;/code&gt;​ 和自动并行。真想要 4K 就 ​&lt;code&gt;-4k -s 3840&lt;/code&gt;，自行接受 Level 6.0。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;注意：16:9 素材的 3840×2160 是 Level 5.1，没这个问题。&lt;strong&gt;只有 3:2 / 4:3 这类&quot;高&quot;比例才会撞上限。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3&gt;5.8 顺路踩的小坑&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;Windows 控制台是 GBK&lt;/strong&gt;，脚本里 ​&lt;code&gt;print(&quot;✅ ...&quot;)&lt;/code&gt;​ 直接抛 ​&lt;code&gt;UnicodeEncodeError&lt;/code&gt; 崩溃。一行解决：&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;if hasattr(sys.stdout, &quot;reconfigure&quot;):
+    sys.stdout.reconfigure(encoding=&quot;utf-8&quot;, errors=&quot;replace&quot;)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;concat demuxer 对反斜杠敏感&lt;/strong&gt;，中文绝对路径也很容易出问题。用相对路径 + ​&lt;code&gt;cwd&lt;/code&gt; 规避。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr /&gt;
+&lt;h2&gt;六、成品&lt;/h2&gt;
+&lt;h3&gt;6.1 用法&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;# 默认：1920 宽，兼容性优先
+python timelapse.py -d &quot;20260924-水库日出\JPG\TIME&quot;
+
+# 一键 4K：3200 宽(Level 5.1) + ultrafast + 自动并行
+python timelapse.py -d &quot;...&quot; -4k
+
+# 真 4K（Level 6.0，自行权衡）
+python timelapse.py -d &quot;...&quot; -4k -s 3840
+
+# 手动控制
+python timelapse.py -d &quot;...&quot; -f 25 -s 1920 -p veryfast -j 6 -o my.mp4
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3&gt;6.2 参数表&lt;/h3&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;参数&lt;/th&gt;
+&lt;th&gt;说明&lt;/th&gt;
+&lt;th&gt;默认&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-d&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;照片文件夹&lt;/td&gt;
+&lt;td&gt;必填&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-f&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;帧率&lt;/td&gt;
+&lt;td&gt;25&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-s&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;缩放宽度上限，​&lt;code&gt;0&lt;/code&gt; = 原图&lt;/td&gt;
+&lt;td&gt;1920（​&lt;code&gt;-4k&lt;/code&gt; 为 3200）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-p&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;x264 preset&lt;/td&gt;
+&lt;td&gt;veryfast（​&lt;code&gt;-4k&lt;/code&gt; 为 ultrafast）&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-j&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;并行进程数，​&lt;code&gt;0&lt;/code&gt; = 自动&lt;/td&gt;
+&lt;td&gt;0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-4k&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;4K 优化模式&lt;/td&gt;
+&lt;td&gt;关&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;-o&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;输出文件名&lt;/td&gt;
+&lt;td&gt;自动命名&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;&lt;code&gt;--crf&lt;/code&gt;&lt;/td&gt;
+&lt;td&gt;画质，越大越低&lt;/td&gt;
+&lt;td&gt;23&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;关于帧率（R6 的一个具体问题）：&lt;strong&gt;不能拍脑袋定，要先看拍摄间隔。&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;加速倍数 = 帧率 × 拍摄间隔
+成片长度 = 张数 ÷ 帧率
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;日出日落这类云和光线的运动，40&amp;lt;sub&amp;gt;150 倍最舒服。5s 间隔配 25fps 正好 125 倍，一小时素材出 29 秒成片。24/25/30 都是标准帧率，延时本身运动慢，&amp;lt;/sub&amp;gt;​&amp;lt;sub&amp;gt;&lt;strong&gt;超过 30 没有意义&lt;/strong&gt;&amp;lt;/sub&amp;gt;​&amp;lt;sub&amp;gt;。素材少就要降帧率拉长（128 张配 25fps 只有 5 秒，得降到 10&amp;lt;/sub&amp;gt;12fps）。&lt;/p&gt;
+&lt;h3&gt;6.3 实测效果&lt;/h3&gt;
+&lt;pre&gt;&lt;code&gt;✅ 一共找到 60 张图片
+✅ 4K优化模式：宽度 3200（Level 5.1）+ preset ultrafast + 自动并行
+✅ 输出文件：20260924_timelapse_3200x2136_h264.mp4
+✅ 并行渲染：6 个分片，每个进程 2 线程（共 12 线程）
+
+开始渲染…
+[████████░░░░░░░░░░░░░░░░░░░░]  30.0%  已用 0:02  剩余 0:06
+[██████████████████░░░░░░░░░░]  66.7%  已用 0:03  剩余 0:01
+[████████████████████████████] 100.0%  已用 0:03  剩余 0:00
+✅ 分片渲染完成，开始拼接…
+✅ 渲染完成！
+✅ 临时文件已清理
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;输出文件稳定为 ​&lt;code&gt;Level 5.1 / yuv420p(tv) / moov@36&lt;/code&gt;，手机、电视、PC 播放器通吃。&lt;/p&gt;
+&lt;p&gt;星空日出那组 716 张，​&lt;code&gt;-4k&lt;/code&gt; 大约 1.5 分钟出片。&lt;/p&gt;
+&lt;h3&gt;6.4 踩坑清单&lt;/h3&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;#&lt;/th&gt;
+&lt;th&gt;坑&lt;/th&gt;
+&lt;th&gt;对策&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;td&gt;原图分辨率输出 → Level 6.2，大半设备拒播&lt;/td&gt;
+&lt;td&gt;默认缩到 1920，按需放宽&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;2&lt;/td&gt;
+&lt;td&gt;moov 在文件末尾 → 网络播放失败、中断即报废&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;-movflags +faststart&lt;/code&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;-pix_fmt&lt;/code&gt; 改不了 color range&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;scale=...:out_range=tv&lt;/code&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;4&lt;/td&gt;
+&lt;td&gt;3:2 素材做 4K 撞破 Level 5.1&lt;/td&gt;
+&lt;td&gt;用 3200 宽，而非 3840&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;5&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;-threads&lt;/code&gt; 救不了图片序列（解码单线程）&lt;/td&gt;
+&lt;td&gt;多进程分片 + ​&lt;code&gt;-c copy&lt;/code&gt; 拼接&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;6&lt;/td&gt;
+&lt;td&gt;分辨率几乎不影响速度，瓶颈在解码源图&lt;/td&gt;
+&lt;td&gt;别在编码参数上浪费精力&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;7&lt;/td&gt;
+&lt;td&gt;Windows GBK 控制台输出 emoji 崩溃&lt;/td&gt;
+&lt;td&gt;&lt;code&gt;stdout.reconfigure(encoding=&quot;utf-8&quot;)&lt;/code&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;8&lt;/td&gt;
+&lt;td&gt;concat demuxer 对反斜杠/中文路径敏感&lt;/td&gt;
+&lt;td&gt;相对路径 + ​&lt;code&gt;cwd&lt;/code&gt;&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;hr /&gt;
+&lt;h2&gt;附录：完整代码&lt;/h2&gt;
+&lt;pre&gt;&lt;code&gt;import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from datetime import datetime
+from pathlib import Path
+
+BAR_WIDTH = 28
+
+
+def probe_size(path):
+    &quot;&quot;&quot;用ffprobe读一张图的宽高（只读文件头，很快）&quot;&quot;&quot;
+    try:
+        r = subprocess.run(
+            [&quot;ffprobe&quot;, &quot;-v&quot;, &quot;error&quot;, &quot;-select_streams&quot;, &quot;v&quot;,
+             &quot;-show_entries&quot;, &quot;stream=width,height&quot;, &quot;-of&quot;, &quot;csv=p=0&quot;, str(path)],
+            capture_output=True, text=True, check=True)
+        w, h = r.stdout.strip().split(&quot;,&quot;)[:2]
+        return int(w), int(h)
+    except Exception:
+        return None
+
+
+def parse_date(text):
+    &quot;&quot;&quot;从文件夹名开头解析日期，统一成 YYYYMMDD&quot;&quot;&quot;
+    m = re.match(r&quot;(\d{4})[-_.]?(\d{2})[-_.]?(\d{2})&quot;, text)
+    if m:
+        return f&quot;{m.group(1)}{m.group(2)}{m.group(3)}&quot;
+    return None
+
+
+def even(n):
+    return int(n) - int(n) % 2
+
+
+def build_video_filter(out_w, out_h):
+    # 源JPG是yuvj422p全范围，只写-pix_fmt yuv420p不会改变range，
+    # 所以显式指定偶数尺寸并转成有限范围(tv)的标准yuv420p
+    return f&quot;scale={out_w}:{out_h}:in_range=auto:out_range=tv,format=yuv420p&quot;
+
+
+def write_concat_list(path, images, img_dir, duration):
+    with open(path, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        for p in images:
+            f.write(f&quot;file &apos;{os.path.relpath(p, img_dir)}&apos;\n&quot;)
+            f.write(f&quot;duration {duration:.6f}\n&quot;)
+
+
+def format_duration(seconds):
+    seconds = max(0, int(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    return f&quot;{h}:{m:02d}:{s:02d}&quot; if h else f&quot;{m}:{s:02d}&quot;
+
+
+def draw_progress(done, total, start):
+    frac = 0.0 if total &amp;lt;= 0 else min(1.0, done / total)
+    filled = int(frac * BAR_WIDTH)
+    bar = &quot;█&quot; * filled + &quot;░&quot; * (BAR_WIDTH - filled)
+    elapsed = time.time() - start
+    eta = format_duration(elapsed * (total - done) / done) if done &amp;gt; 0 else &quot;--:--&quot;
+    line = f&quot;\r[{bar}] {frac * 100:5.1f}%  已用 {format_duration(elapsed)}  剩余 {eta}&quot;
+    sys.stdout.write(line + &quot; &quot; * max(0, 84 - len(line)))
+    sys.stdout.flush()
+
+
+def run_ffmpeg_batch(cmds, totals, cwd):
+    &quot;&quot;&quot;并行跑多个ffmpeg，汇总成一条进度条；返回 [(returncode, stderr文本), ...]&quot;&quot;&quot;
+    total = sum(totals)
+    frames = [0] * len(cmds)
+    lock = threading.Lock()
+    start = time.time()
+    logs = []
+    procs = []
+
+    for cmd in cmds:
+        fd, path = tempfile.mkstemp(prefix=&quot;tl_log_&quot;, suffix=&quot;.txt&quot;)
+        fh = os.fdopen(fd, &quot;wb&quot;)
+        logs.append((fh, path))
+        procs.append(subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE,
+                                      stderr=fh, text=True, bufsize=1))
+
+    def reader(i, proc):
+        for line in proc.stdout:
+            if line.startswith(&quot;frame=&quot;):
+                try:
+                    frames[i] = int(line.strip().split(&quot;=&quot;, 1)[1])
+                except ValueError:
+                    continue
+                with lock:
+                    draw_progress(sum(frames), total, start)
+
+    threads = [threading.Thread(target=reader, args=(i, p), daemon=True)
+               for i, p in enumerate(procs)]
+    for t in threads:
+        t.start()
+    codes = [p.wait() for p in procs]
+    for t in threads:
+        t.join()
+    for fh, _ in logs:
+        fh.close()
+    draw_progress(total, total, start)
+    sys.stdout.write(&quot;\n&quot;)
+    sys.stdout.flush()
+
+    results = []
+    for code, (_, path) in zip(codes, logs):
+        try:
+            with open(path, &quot;r&quot;, encoding=&quot;utf-8&quot;, errors=&quot;replace&quot;) as fh:
+                err = fh.read().strip()
+        except OSError:
+            err = &quot;&quot;
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        results.append((code, err))
+    return results
+
+
+def main():
+    # Windows默认控制台是GBK，无法输出✅等表情，会直接崩溃，这里强制UTF-8
+    if hasattr(sys.stdout, &quot;reconfigure&quot;):
+        sys.stdout.reconfigure(encoding=&quot;utf-8&quot;, errors=&quot;replace&quot;)
+
+    parser = argparse.ArgumentParser(description=&quot;用ffmpeg concat模式合成延时摄影（图片清单）&quot;)
+    parser.add_argument(&quot;--dir&quot;, &quot;-d&quot;, required=True, help=&quot;照片所在文件夹路径&quot;)
+    parser.add_argument(&quot;--fps&quot;, &quot;-f&quot;, type=float, default=25, help=&quot;输出视频帧率，默认25&quot;)
+    parser.add_argument(&quot;--output&quot;, &quot;-o&quot;, default=None,
+                        help=&quot;输出mp4文件名，默认自动命名：yyyymmdd_timelapse_宽x高_编码器.mp4&quot;)
+    parser.add_argument(&quot;--scale&quot;, &quot;-s&quot;, default=None, help=&quot;缩放宽度上限，默认1920（-4k模式为3200）；填0保留原图尺寸&quot;)
+    parser.add_argument(&quot;--crf&quot;, type=int, default=23, help=&quot;H.264 CRF画质，默认23，越大画质越低&quot;)
+    parser.add_argument(&quot;--preset&quot;, &quot;-p&quot;, default=None, help=&quot;x264预设：ultrafast最快 / veryfast / medium画质更好但更慢（默认veryfast，-4k模式为ultrafast）&quot;)
+    parser.add_argument(&quot;--jobs&quot;, &quot;-j&quot;, type=int, default=0, help=&quot;并行进程数，0=自动（约等于CPU物理核心数），1=单进程&quot;)
+    parser.add_argument(&quot;-4k&quot;, &quot;--4k&quot;, dest=&quot;four_k&quot;, action=&quot;store_true&quot;, help=&quot;4K优化模式：3200宽(Level 5.1) + ultrafast + 自动并行&quot;)
+    args = parser.parse_args()
+
+    # -4k 给出一组优化默认值；单独再用 -s / -p 仍可覆盖
+    scale = args.scale if args.scale is not None else (&quot;3200&quot; if args.four_k else &quot;1920&quot;)
+    preset = args.preset if args.preset is not None else (&quot;ultrafast&quot; if args.four_k else &quot;veryfast&quot;)
+
+    img_dir = Path(args.dir)
+    if not img_dir.exists():
+        print(f&quot;错误：目录不存在 {img_dir}&quot;)
+        return
+
+    # 搜索jpg，大小写兼容，不会重复
+    img_list = []
+    for ext in (&quot;*.jpg&quot;, &quot;*.JPG&quot;):
+        img_list.extend(img_dir.glob(ext))
+    img_list = sorted(list(set(img_list))) #去重，排序
+    if len(img_list) == 0:
+        print(&quot;错误：文件夹内没有找到jpg图片！&quot;)
+        return
+    print(f&quot;✅ 一共找到 {len(img_list)} 张图片&quot;)
+    if args.four_k:
+        print(f&quot;✅ 4K优化模式：宽度 {scale}（Level 5.1）+ preset {preset} + 自动并行&quot;)
+
+    # 显式算出偶数输出尺寸：这样文件名里的分辨率一定和实际画面一致
+    scale_arg = str(scale).strip().lower()
+    keep_native = scale_arg in (&quot;0&quot;, &quot;&quot;, &quot;none&quot;, &quot;original&quot;)
+    src = probe_size(img_list[0])
+    if src:
+        sw, sh = src
+        if keep_native:
+            out_w = even(sw)
+        else:
+            try:
+                target_w = int(float(scale_arg))
+            except ValueError:
+                print(f&quot;错误：--scale 需要是数字或 0，收到 {scale_arg}&quot;)
+                return
+            out_w = even(min(target_w, sw))
+        out_h = even(round(sh * out_w / sw))
+        vf = build_video_filter(out_w, out_h)
+        res_tag = f&quot;{out_w}x{out_h}&quot;
+    else:
+        print(&quot;⚠️ ffprobe读不到源尺寸，改用自适应缩放（文件名分辨率可能不精确）&quot;)
+        if keep_native:
+            vf = &quot;scale=trunc(iw/2)*2:trunc(ih/2)*2:in_range=auto:out_range=tv,format=yuv420p&quot;
+            res_tag = &quot;native&quot;
+        else:
+            vf = f&quot;scale=&apos;trunc(min({scale_arg},iw)/2)*2&apos;:-2:in_range=auto:out_range=tv,format=yuv420p&quot;
+            res_tag = f&quot;{scale_arg}w&quot;
+
+    codec_tag = &quot;h264&quot;  # 目前固定用 libx264
+    if args.output:
+        out_path = img_dir / args.output
+    else:
+        date = parse_date(img_dir.name) or datetime.fromtimestamp(img_list[0].stat().st_mtime).strftime(&quot;%Y%m%d&quot;)
+        out_path = img_dir / f&quot;{date}_timelapse_{res_tag}_{codec_tag}.mp4&quot;
+    print(f&quot;✅ 输出文件：{out_path.name}&quot;)
+
+    duration = 1.0 / args.fps
+
+    # MJPEG解码是单线程的（实测 -threads 无效），所以提速只能靠&quot;多个ffmpeg进程分片并行&quot;
+    cpus = os.cpu_count() or 2
+    jobs = args.jobs if args.jobs &amp;gt; 0 else max(1, cpus // 2)
+    jobs = max(1, min(jobs, len(img_list)))
+    enc_threads = max(1, cpus // jobs)
+    enc = [&quot;-c:v&quot;, &quot;libx264&quot;, &quot;-preset&quot;, preset, &quot;-crf&quot;, str(args.crf), &quot;-threads&quot;, str(enc_threads)]
+
+    def base_cmd(in_list):
+        # -loglevel error 关掉日志，-progress pipe:1 输出机器可读进度
+        return [&quot;ffmpeg&quot;, &quot;-hide_banner&quot;, &quot;-loglevel&quot;, &quot;error&quot;, &quot;-nostats&quot;, &quot;-progress&quot;, &quot;pipe:1&quot;,
+                &quot;-f&quot;, &quot;concat&quot;, &quot;-safe&quot;, &quot;0&quot;, &quot;-i&quot;, str(in_list), &quot;-vf&quot;, vf] + enc + [&quot;-r&quot;, str(args.fps)]
+
+    # 单进程：直接输出
+    if jobs == 1:
+        list_path = img_dir / &quot;ffmpeg_list.txt&quot;
+        write_concat_list(list_path, img_list, img_dir, duration)
+        cmd = base_cmd(list_path) + [&quot;-pix_fmt&quot;, &quot;yuv420p&quot;, &quot;-movflags&quot;, &quot;+faststart&quot;, &quot;-y&quot;, str(out_path)]
+        print(&quot;\n开始渲染…&quot;)
+        code, err = run_ffmpeg_batch([cmd], [len(img_list)], str(img_dir))[0]
+        list_path.unlink(missing_ok=True)
+        if code == 0:
+            print(&quot;✅ 渲染完成！&quot;)
+        else:
+            print(f&quot;❌ ffmpeg执行失败，返回码：{code}&quot;)
+            if err:
+                print(err)
+        print(&quot;✅ 临时清单文件已清理&quot;)
+        return
+
+    # 多进程：按顺序切成 jobs 个分片并行渲染，再用 -c copy 无损拼接
+    chunk = (len(img_list) + jobs - 1) // jobs
+    chunks = [img_list[i:i + chunk] for i in range(0, len(img_list), chunk)]
+    print(f&quot;✅ 并行渲染：{len(chunks)} 个分片，每个进程 {enc_threads} 线程（共 {cpus} 线程）&quot;)
+    print(&quot;\n开始渲染…&quot;)
+
+    tmpdir = Path(tempfile.mkdtemp(prefix=&quot;timelapse_&quot;))
+    seg_lists = []
+    seg_files = []
+    try:
+        cmds = []
+        for i, part in enumerate(chunks):
+            lp = img_dir / f&quot;ffmpeg_list_{i:03d}.txt&quot;
+            write_concat_list(lp, part, img_dir, duration)
+            seg_lists.append(lp)
+            seg = tmpdir / f&quot;seg_{i:03d}.mp4&quot;
+            seg_files.append(seg)
+            cmds.append(base_cmd(lp) + [&quot;-pix_fmt&quot;, &quot;yuv420p&quot;, &quot;-y&quot;, str(seg)])
+
+        results = run_ffmpeg_batch(cmds, [len(c) for c in chunks], str(img_dir))
+        failed = [(code, err) for code, err in results if code != 0]
+        if failed:
+            print(&quot;❌ 有分片渲染失败，已中止&quot;)
+            for code, err in failed:
+                print(f&quot;返回码 {code}: {err}&quot;)
+            return
+
+        print(&quot;✅ 分片渲染完成，开始拼接…&quot;)
+        seg_list = tmpdir / &quot;segs.txt&quot;
+        with open(seg_list, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+            for s in seg_files:
+                f.write(f&quot;file &apos;{s.as_posix()}&apos;\n&quot;)
+
+        cmd = [&quot;ffmpeg&quot;, &quot;-hide_banner&quot;, &quot;-loglevel&quot;, &quot;error&quot;, &quot;-nostats&quot;,
+               &quot;-f&quot;, &quot;concat&quot;, &quot;-safe&quot;, &quot;0&quot;, &quot;-i&quot;, str(seg_list),
+               &quot;-c&quot;, &quot;copy&quot;, &quot;-movflags&quot;, &quot;+faststart&quot;, &quot;-y&quot;, str(out_path)]
+        ret = subprocess.run(cmd, cwd=str(img_dir), capture_output=True, text=True)
+        if ret.returncode == 0:
+            print(&quot;✅ 渲染完成！&quot;)
+        else:
+            print(f&quot;❌ 拼接失败，返回码：{ret.returncode}&quot;)
+            if ret.stderr.strip():
+                print(ret.stderr.strip())
+    finally:
+        for lp in seg_lists:
+            lp.unlink(missing_ok=True)
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        print(&quot;✅ 临时文件已清理&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+&lt;/code&gt;&lt;/pre&gt;
+</content:encoded></item><item><title>基于OpenCV 的ECC​对延时摄影照片对齐与自动裁切</title><link>https://tangkai.me/posts/%E5%9F%BA%E4%BA%8Eopencv-%E7%9A%84ecc%E5%AF%B9%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E7%85%A7%E7%89%87%E5%AF%B9%E9%BD%90%E4%B8%8E%E8%87%AA%E5%8A%A8%E8%A3%81%E5%88%87/</link><guid isPermaLink="true">https://tangkai.me/posts/%E5%9F%BA%E4%BA%8Eopencv-%E7%9A%84ecc%E5%AF%B9%E5%BB%B6%E6%97%B6%E6%91%84%E5%BD%B1%E7%85%A7%E7%89%87%E5%AF%B9%E9%BD%90%E4%B8%8E%E8%87%AA%E5%8A%A8%E8%A3%81%E5%88%87/</guid><pubDate>Fri, 25 Sep 2026 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;基于OpenCV 的ECC对延时摄影照片对齐与自动裁切&lt;/h1&gt;
 &lt;p&gt;拍日出延时，最怕部分帧抖动。手动对齐不现实，尤其当你有几百张 3600 万像素的照片时。最近写了一个 ​&lt;code&gt;align_all_photo.py&lt;/code&gt;​，目标很明确：&lt;strong&gt;以一张参考图为基准，自动对齐所有照片，计算共同有效区域，统一裁切并保持原图宽高比&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;这篇文章把脚本里的技术原理拆开讲清楚，包括为什么这么设计、关键公式、性能数据和踩过的坑。&lt;/p&gt;
 &lt;hr /&gt;
