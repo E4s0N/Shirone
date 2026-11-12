@@ -10,6 +10,8 @@ This is the llms.txt file for Tangkai's Blog. It provides a machine-readable dir
 - [Archive](https://tangkai.me/archive/): Chronological index of all published writings.
 
 ## Articles
+- [时间窗内的孤立性眩晕，要考虑静脉溶栓吗？](https://tangkai.me/posts/2026-11-12-时间窗内的孤立性眩晕-要考虑静脉溶栓吗/)
+- [「眩晕」起病的脑梗死，要不要溶栓？](https://tangkai.me/posts/2026-11-12-眩晕-起病的脑梗死-要不要溶栓/)
 - [从重度狭窄到大动脉闭塞：急性缺血性脑卒中抗血小板治疗策略的差](https://tangkai.me/posts/2026-11-03-从重度狭窄到大动脉闭塞-急性缺血性脑卒中抗血小板治疗策略的差/)
 - [神经介入急诊取栓术术前知情同意沟通技巧（新手版）](https://tangkai.me/posts/2026-11-02-神经介入急诊取栓术术前知情同意沟通技巧-新手版/)
 - [从急诊到出院，一份缺血性脑卒中溶栓桥接取栓病历到底怎么写？](https://tangkai.me/posts/2026-10-24-从急诊到出院-一份缺血性脑卒中溶栓桥接取栓病历到底怎么写/)
